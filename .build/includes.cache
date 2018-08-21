@@ -1,0 +1,132 @@
+[
+  {
+    "Sourcefile": "",
+    "Include": "",
+    "Includepath": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\cores\\arduino"
+  },
+  {
+    "Sourcefile": "",
+    "Include": "",
+    "Includepath": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\variants\\MXChip_AZ3166"
+  },
+  {
+    "Sourcefile": "c:\\Repo\\AZ3166WeatherDevice\\.build\\sketch\\AZ3166WeatherDevice.ino.cpp",
+    "Include": "Sensor.h",
+    "Includepath": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\Sensors\\src"
+  },
+  {
+    "Sourcefile": "c:\\Repo\\AZ3166WeatherDevice\\.build\\sketch\\AZ3166WeatherDevice.ino.cpp",
+    "Include": "AzureIotHub.h",
+    "Includepath": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\AzureIoT\\src"
+  },
+  {
+    "Sourcefile": "c:\\Repo\\AZ3166WeatherDevice\\.build\\sketch\\AZ3166WeatherDevice.ino.cpp",
+    "Include": "AZ3166WiFi.h",
+    "Includepath": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\WiFi\\src"
+  },
+  {
+    "Sourcefile": "c:\\Repo\\AZ3166WeatherDevice\\.build\\sketch\\AZ3166WeatherDevice.ino.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "c:\\Repo\\AZ3166WeatherDevice\\.build\\sketch\\AZ3166Leds.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "c:\\Repo\\AZ3166WeatherDevice\\.build\\sketch\\IoTHubDeviceMethods.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "c:\\Repo\\AZ3166WeatherDevice\\.build\\sketch\\IoTHubMessageHandling.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "c:\\Repo\\AZ3166WeatherDevice\\.build\\sketch\\ReadSensorData.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\Sensors\\src\\HTS221Sensor.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\Sensors\\src\\IrDASensor.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\Sensors\\src\\LIS2MDLSensor.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\Sensors\\src\\LPS22HBSensor.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\Sensors\\src\\LSM6DSLSensor.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\Sensors\\src\\RGB_LED.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\Sensors\\src\\utility\\HTS221_driver.c",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\Sensors\\src\\utility\\LPS22HB_driver.c",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\Sensors\\src\\utility\\LSM6DSL_acc_gyro_driver.c",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\AzureIoT\\src\\AzureIotHub.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\AzureIoT\\src\\DevKitMQTTClient.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\AzureIoT\\src\\DevkitDPSClient.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\WiFi\\src\\AZ3166WiFi.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\WiFi\\src\\AZ3166WiFiClient.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\WiFi\\src\\AZ3166WiFiServer.cpp",
+    "Include": "",
+    "Includepath": ""
+  },
+  {
+    "Sourcefile": "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\libraries\\WiFi\\src\\AZ3166WiFiUdp.cpp",
+    "Include": "",
+    "Includepath": ""
+  }
+]
