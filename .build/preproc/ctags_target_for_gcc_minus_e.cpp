@@ -164,5 +164,10 @@ void loop()
     } else {
         DevKitMQTTClient_Check();
     }
+
+    if (onReset) {
+        onReset = false;
+        __NVIC_SystemReset();
+    }
     delay(500);
 }

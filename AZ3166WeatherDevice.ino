@@ -150,5 +150,10 @@ void loop()
     } else {
         DevKitMQTTClient_Check();
     }
+
+    if (onReset) {
+        onReset = false;
+        NVIC_SystemReset();
+    }
     delay(DEFAULT_WAKEUP_INTERVAL);
 }
