@@ -5,10 +5,12 @@ This sample connects to an IoT Hub (including IoT Hub as part of an Azure IoT Ce
 
 Telemetry being send is any combination of the following values:
 
-|temperature | float
-|humidity | float
-|pressure | float
+name | data type
+-----|----------
+temperature | float
+humidity | float
+pressure | float
 
-Blablabla
+
 
 
