@@ -166,9 +166,26 @@ void loop()
         DevKitMQTTClient_Check();
     }
 
+    if (IsButtonClicked(USER_BUTTON_A)) {
+        char messageEvt[MESSAGE_MAX_LEN];
+        CreateEventMsg(messageEvt);
+
+        EVENT_INSTANCE* message = DevKitMQTTClient_Event_Generate(messageEvt, MESSAGE);
+        DevKitMQTTClient_SendEventInstance(message);
+    }
+
+    if (IsButtonClicked(USER_BUTTON_B)) {
+        char messageEvt[MESSAGE_MAX_LEN];
+        CreateErrorEventMsg(messageEvt);
+
+        EVENT_INSTANCE* message = DevKitMQTTClient_Event_Generate(messageEvt, MESSAGE);
+        DevKitMQTTClient_SendEventInstance(message);
+    }
+
     if (onReset) {
         onReset = false;
         NVIC_SystemReset();
     }
+
     delay(DEFAULT_WAKEUP_INTERVAL);
 }

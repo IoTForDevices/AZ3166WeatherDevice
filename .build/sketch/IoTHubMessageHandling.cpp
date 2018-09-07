@@ -76,7 +76,47 @@ bool CreateTelemetryMessage(int messageId, char *payload, bool forceCreate, DEVI
     return temperatureAlert;
 }
 
-const char *deviceFirmware = "1.3.0";
+void CreateEventMsg(char *payload)
+{
+#ifdef DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING
+    LogInfo("DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING  CreateEventMessage Invoked");
+#endif
+
+    JSON_Value *root_value = json_value_init_object();
+    JSON_Object *root_object = json_value_get_object(root_value);
+    char *serialized_string = NULL;
+
+    json_object_set_string(root_object, "deviceId", DEVICE_ID);
+    json_object_set_boolean(root_object, "buttonAPressed", true);
+
+    serialized_string = json_serialize_to_string_pretty(root_value);
+
+    snprintf(payload, MESSAGE_MAX_LEN, "%s", serialized_string);
+    json_free_serialized_string(serialized_string);
+    json_value_free(root_value);
+}
+
+void CreateErrorEventMsg(char *payload)
+{
+#ifdef DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING
+    LogInfo("DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING  CreateEventMessage Invoked");
+#endif
+
+    JSON_Value *root_value = json_value_init_object();
+    JSON_Object *root_object = json_value_get_object(root_value);
+    char *serialized_string = NULL;
+
+    json_object_set_string(root_object, "deviceId", DEVICE_ID);
+    json_object_set_boolean(root_object, "buttonBPressed", true);
+
+    serialized_string = json_serialize_to_string_pretty(root_value);
+
+    snprintf(payload, MESSAGE_MAX_LEN, "%s", serialized_string);
+    json_free_serialized_string(serialized_string);
+    json_value_free(root_value);
+}
+
+const char *deviceFirmware = "1.4.0";
 const char *deviceLocation = DEVICE_LOCATION;
 const char *deviceId = DEVICE_ID;
 const double deviceLatitude = 52.176;

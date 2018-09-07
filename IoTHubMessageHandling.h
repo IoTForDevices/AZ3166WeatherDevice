@@ -19,6 +19,8 @@ typedef struct {
 } DEVICE_SETTINGS;
 
 bool CreateTelemetryMessage(int messageId, char *payload, bool forceCreate, DEVICE_SETTINGS *pDeviceSettings);
+void CreateEventMsg(char* payLoad);
+void CreateErrorEventMsg(char* payLoad);
 bool SendDeviceInfo(DEVICE_SETTINGS *pDeviceSettings);
 bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message, DEVICE_SETTINGS *pDeviceSettings);
 

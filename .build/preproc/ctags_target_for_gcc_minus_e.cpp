@@ -82,8 +82,11 @@ bool InitIoTHub()
 }
 
 /* IoT Hub Callback functions.
+
  * NOTE: These functions must be available inside this source file, prior to the Init and Loop methods.
+
  */
+# 77 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 int DeviceMethodCallback(const char *methodName, const unsigned char *payload, int length, unsigned char **response, int *responseLength)
 {
     int result = 200;
@@ -165,9 +168,26 @@ void loop()
         DevKitMQTTClient_Check();
     }
 
+    if (IsButtonClicked(USER_BUTTON_A)) {
+        char messageEvt[256];
+        CreateEventMsg(messageEvt);
+
+        EVENT_INSTANCE* message = DevKitMQTTClient_Event_Generate(messageEvt, MESSAGE);
+        DevKitMQTTClient_SendEventInstance(message);
+    }
+
+    if (IsButtonClicked(USER_BUTTON_B)) {
+        char messageEvt[256];
+        CreateErrorEventMsg(messageEvt);
+
+        EVENT_INSTANCE* message = DevKitMQTTClient_Event_Generate(messageEvt, MESSAGE);
+        DevKitMQTTClient_SendEventInstance(message);
+    }
+
     if (onReset) {
         onReset = false;
         __NVIC_SystemReset();
     }
+
     delay(500);
 }
