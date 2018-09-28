@@ -19,7 +19,6 @@
 
 static bool onReset = false;
 
-static int messageCount = 1;
 static bool messageSending = true;
 static uint64_t send_interval_ms;
 static uint64_t measure_interval_ms;
@@ -33,23 +32,23 @@ static DEVICE_SETTINGS deviceSettings { DEFAULT_MEASURE_INTERVAL, DEFAULT_SEND_I
                                         DEFAULT_MAX_DELTA_BETWEEN_MEASUREMENTS,
                                         0.0, 0.0, 0.0 };
 
-#line 34 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+#line 33 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *payLoad, int length);
-#line 50 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+#line 49 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 bool InitWifi();
-#line 63 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+#line 62 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 bool InitIoTHub();
-#line 77 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+#line 76 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 int DeviceMethodCallback(const char *methodName, const unsigned char *payload, int length, unsigned char **response, int *responseLength);
-#line 91 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+#line 90 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 void setup();
-#line 109 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+#line 108 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 void loop();
-#line 34 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+#line 33 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *payLoad, int length){
     char payLoadString[length+1];
     snprintf(payLoadString, length, "%s", payLoad);
-    LogInfo("    Payload: %s", payLoadString);
+    LogInfo("    Payload: Length = %d, Content = %s", length, payLoadString);
 
     char *temp = (char *)malloc(length + 1);
     if (temp == NULL)
@@ -138,23 +137,19 @@ void loop()
     }
 
     if (nextMeasurementDue || nextMessageDue) {
-        // Read Sensors
+        // Read Sensors ...
         char messagePayload[MESSAGE_MAX_LEN];
 
-        bool temperatureAlert = CreateTelemetryMessage(messageCount, messagePayload, nextMessageDue, &deviceSettings);
+        bool temperatureAlert = CreateTelemetryMessage(messagePayload, nextMessageDue, &deviceSettings);
 
         if (! suppressMessages) {
-            if (nextMessageDue)
-            {
-                send_interval_ms = SystemTickCounterRead();     // Send at least one complete message per nextMessageDue interval
-            }
 
-            // And send data if the sensor value(s) differ from the previous reading
+            // ... and send data if the sensor value(s) differ from the previous reading or when the device needs to give a sign of life.
             if (strlen(messagePayload) != 0) {
                 EVENT_INSTANCE* message = DevKitMQTTClient_Event_Generate(messagePayload, MESSAGE);
                 DevKitMQTTClient_Event_AddProp(message, "temperatureAlert", temperatureAlert ? "true" : "false");
                 DevKitMQTTClient_SendEventInstance(message);
-                messageCount++;
+                send_interval_ms = SystemTickCounterRead();     // reset the send interval because we just did send a message 
             }
         }
 
@@ -168,7 +163,7 @@ void loop()
 
     if (IsButtonClicked(USER_BUTTON_A)) {
         char messageEvt[MESSAGE_MAX_LEN];
-        CreateEventMsg(messageEvt);
+        CreateEventMsg(messageEvt, WARNING_EVENT);
 
         EVENT_INSTANCE* message = DevKitMQTTClient_Event_Generate(messageEvt, MESSAGE);
         DevKitMQTTClient_SendEventInstance(message);
@@ -176,7 +171,7 @@ void loop()
 
     if (IsButtonClicked(USER_BUTTON_B)) {
         char messageEvt[MESSAGE_MAX_LEN];
-        CreateErrorEventMsg(messageEvt);
+        CreateEventMsg(messageEvt, ERROR_EVENT);
 
         EVENT_INSTANCE* message = DevKitMQTTClient_Event_Generate(messageEvt, MESSAGE);
         DevKitMQTTClient_SendEventInstance(message);

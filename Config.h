@@ -28,16 +28,20 @@
 #define MESSAGE_MAX_LEN 256
 #define DEFAULT_TEMPERATURE_ALERT 40
 
-#define DEVICE_ID "AZ3166-WS03"
-#define DEVICE_LOCATION "Test Device"
+#define DEVICE_ID "AZ3166-WS01"
+#define DEVICE_LOCATION "Home - Living Room"
 
-#define JSON_TEMPERATURE "temperature"
-#define JSON_HUMIDITY    "humidity"
-#define JSON_PRESSURE    "pressure"
+// Telemetry
+#define JSON_TEMPERATURE   "temperature"
+#define JSON_HUMIDITY      "humidity"
+#define JSON_PRESSURE      "pressure"
 
-#define JSON_MESSAGEID   "messageId"
-#define JSON_DEVICEID    "deviceId"
-#define JSON_DEVICELOC   "device_location"
+#define JSON_MESSAGEID     "messageId"
+#define JSON_DEVICEID      "deviceId"
+#define JSON_DEVICELOC     "device_location"
+
+#define JSON_EVENT_WARNING "buttonAPressed"
+#define JSON_EVENT_ERROR   "buttonBPressed"
 
 #define SIMULATED_DATA false
 

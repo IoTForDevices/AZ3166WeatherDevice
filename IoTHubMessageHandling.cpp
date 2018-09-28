@@ -15,7 +15,7 @@ static float temperature = 0;
 static float humidity = 0;
 static float pressure = 0;
 
-bool CreateTelemetryMessage(int messageId, char *payload, bool forceCreate, DEVICE_SETTINGS *pDeviceSettings)
+bool CreateTelemetryMessage(char *payload, bool forceCreate, DEVICE_SETTINGS *pDeviceSettings)
 {
     float t = ReadTemperature() + pDeviceSettings->temperatureCorrection;
     float h = ReadHumidity() + pDeviceSettings->humidityCorrection;
@@ -41,12 +41,11 @@ bool CreateTelemetryMessage(int messageId, char *payload, bool forceCreate, DEVI
         JSON_Object *root_object = json_value_get_object(root_value);
         char *serialized_string = NULL;
 
-        json_object_set_string(root_object, "deviceId", DEVICE_ID);
-        json_object_set_number(root_object, "messageId", messageId);
+        json_object_set_string(root_object, JSON_DEVICEID, DEVICE_ID);
 
         if (temperatureChanged) {
             temperature = t;
-            json_object_set_number(root_object, "temperature", temperature);
+            json_object_set_number(root_object, JSON_TEMPERATURE, temperature);
         }
 
         if(temperature > DEFAULT_TEMPERATURE_ALERT) {
@@ -55,12 +54,12 @@ bool CreateTelemetryMessage(int messageId, char *payload, bool forceCreate, DEVI
 
         if (humidityChanged) {
             humidity = h;
-            json_object_set_number(root_object, "humidity", humidity);
+            json_object_set_number(root_object, JSON_HUMIDITY, humidity);
         }
 
         if (pressureChanged) {
             pressure = p;
-            json_object_set_number(root_object, "pressure", pressure);
+            json_object_set_number(root_object, JSON_PRESSURE, pressure);
         }
 
         ShowTelemetryData(temperature, humidity, pressure);
@@ -76,7 +75,7 @@ bool CreateTelemetryMessage(int messageId, char *payload, bool forceCreate, DEVI
     return temperatureAlert;
 }
 
-void CreateEventMsg(char *payload)
+void CreateEventMsg(char *payload, IOTC_EVENT_TYPE eventType)
 {
 #ifdef DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING
     LogInfo("DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING  CreateEventMessage Invoked");
@@ -86,29 +85,12 @@ void CreateEventMsg(char *payload)
     JSON_Object *root_object = json_value_get_object(root_value);
     char *serialized_string = NULL;
 
-    json_object_set_string(root_object, "deviceId", DEVICE_ID);
-    json_object_set_boolean(root_object, "buttonAPressed", true);
-
-    serialized_string = json_serialize_to_string_pretty(root_value);
-
-    snprintf(payload, MESSAGE_MAX_LEN, "%s", serialized_string);
-    json_free_serialized_string(serialized_string);
-    json_value_free(root_value);
-}
-
-void CreateErrorEventMsg(char *payload)
-{
-#ifdef DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING
-    LogInfo("DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING  CreateEventMessage Invoked");
-#endif
-
-    JSON_Value *root_value = json_value_init_object();
-    JSON_Object *root_object = json_value_get_object(root_value);
-    char *serialized_string = NULL;
-
-    json_object_set_string(root_object, "deviceId", DEVICE_ID);
-    json_object_set_boolean(root_object, "buttonBPressed", true);
-
+    json_object_set_string(root_object, JSON_DEVICEID, DEVICE_ID);
+    if (eventType == WARNING_EVENT) {
+        json_object_set_boolean(root_object, JSON_EVENT_WARNING, true);
+    } else if (eventType == ERROR_EVENT) {
+        json_object_set_boolean(root_object, JSON_EVENT_ERROR, true);
+    }
     serialized_string = json_serialize_to_string_pretty(root_value);
 
     snprintf(payload, MESSAGE_MAX_LEN, "%s", serialized_string);
@@ -131,7 +113,7 @@ const char *twinProperties="{\"Firmware\":\"%s\",\"Model\":\"%s\",\"Location\":\
 bool SendDeviceInfo(DEVICE_SETTINGS *pDeviceSettings)
 {
     char reportedProperties[2048];
-    snprintf(reportedProperties,2048, twinProperties, deviceFirmware, deviceId, deviceLocation, deviceLatitude, deviceLongitude, 
+    snprintf(reportedProperties, 2048, twinProperties, deviceFirmware, deviceId, deviceLocation, deviceLatitude, deviceLongitude, 
         pDeviceSettings->measureInterval, pDeviceSettings->sendInterval, pDeviceSettings->warmingUpTime,
         pDeviceSettings->temperatureAlert, pDeviceSettings->temperatureAccuracy, pDeviceSettings->humidityAccuracy, pDeviceSettings->pressureAccuracy,
         pDeviceSettings->maxDeltaBetweenMeasurements,
