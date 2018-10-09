@@ -132,7 +132,7 @@ void loop()
             // ... and send data if the sensor value(s) differ from the previous reading or when the device needs to give a sign of life.
             if (strlen(messagePayload) != 0) {
                 EVENT_INSTANCE* message = DevKitMQTTClient_Event_Generate(messagePayload, MESSAGE);
-                DevKitMQTTClient_Event_AddProp(message, "temperatureAlert", temperatureAlert ? "true" : "false");
+                DevKitMQTTClient_Event_AddProp(message, JSON_TEMPERATURE_ALERT, temperatureAlert ? "true" : "false");
                 DevKitMQTTClient_SendEventInstance(message);
                 send_interval_ms = SystemTickCounterRead();     // reset the send interval because we just did send a message 
             }
