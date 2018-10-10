@@ -11,6 +11,24 @@ temperature | float
 humidity | float
 pressure | float
 
+The frequency of sending Telemetry Data is configurable. The accuracy of telemetry data is configurable as well.
+
+The following settings are used in the application:
+
+name | data type
+-----|----------
+measureInterval | int (value in seconds)
+sendInterval | int (value in seconds)
+warmingUpTime | int (value in minutes)
+temperatureAlert | int
+temperatureAccuracy | float
+pressureAccuracy | float
+humidityAccuracy | float
+maxDeltaBetweenMeasurements | int
+temperatureCorrection | float
+pressureCorrection | float
+humidityCorrection | float
+
 
 
 

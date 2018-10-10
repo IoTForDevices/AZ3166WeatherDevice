@@ -16,5 +16,6 @@ void SetupSensors();
 float ReadHumidity();
 float ReadTemperature();
 float ReadPressure();
+bool IsButtonClicked(unsigned char);
 
 #endif // READSENSORDATA_H

@@ -1,24 +1,31 @@
 #ifndef IOTHUBMESSAGEHANDLING_H
 #define IOTHUBMESSAGEHANDLING_H
 
+typedef enum {
+    NORMAL_EVENT,
+    WARNING_EVENT,
+    ERROR_EVENT
+} IOTC_EVENT_TYPE;
+
 typedef struct {
-    int measureInterval;        // Different Intervals
+    int measureInterval;                // Different Intervals
     int sendInterval;
     int warmingUpTime;
-    int mImsec;                 // For internal use only
+    int mImsec;                         // For internal use only - conversion of all intervals into msec
     int sImsec;
     int wUTmsec;
-    int temperatureAlert;       // High temperature alert value
-    float temperatureAccuracy;  // Different sensor reading accuracies
+    int temperatureAlert;               // High temperature alert value
+    float temperatureAccuracy;          // Different sensor reading accuracies
     float pressureAccuracy;
     float humidityAccuracy;
-    int maxDeltaBetweenMeasurements;
-    float temperatureCorrection;
+    int maxDeltaBetweenMeasurements;    // Maximum value that two sensor readings can change without considering it to be false readings
+    float temperatureCorrection;        // Sensor reading correction factors
     float pressureCorrection;
     float humidityCorrection;
 } DEVICE_SETTINGS;
 
-bool CreateTelemetryMessage(int messageId, char *payload, bool forceCreate, DEVICE_SETTINGS *pDeviceSettings);
+bool CreateTelemetryMessage(char *payload, bool forceCreate, DEVICE_SETTINGS *pDeviceSettings);
+void CreateEventMsg(char* payLoad, IOTC_EVENT_TYPE eventType);
 bool SendDeviceInfo(DEVICE_SETTINGS *pDeviceSettings);
 bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message, DEVICE_SETTINGS *pDeviceSettings);
 

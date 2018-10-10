@@ -64,3 +64,15 @@ float ReadPressure()
 
     return p;
 }
+
+bool IsButtonClicked(unsigned char ulPin)
+{
+    pinMode(ulPin, INPUT);
+    int buttonState = digitalRead(ulPin);
+    if(buttonState == LOW)
+    {
+        return true;
+    }
+    return false;
+}
+
