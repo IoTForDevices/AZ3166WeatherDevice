@@ -28,8 +28,9 @@
 #define MESSAGE_MAX_LEN 256
 #define DEFAULT_TEMPERATURE_ALERT 40
 
-#define DEVICE_ID "AZ3166-WS02"
-#define DEVICE_LOCATION "Home - Office"
+#define DEVICE_ID "AZ3166-WS01"
+#define DEVICE_LOCATION "Home - Living Room"
+#define DEVICE_FIRMWARE_VERSION "1.6.0"
 
 // Telemetry
 #define JSON_TEMPERATURE       "temperature"

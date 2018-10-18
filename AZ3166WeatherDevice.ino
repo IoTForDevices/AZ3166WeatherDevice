@@ -16,6 +16,7 @@
 #include "ReadSensorData.h"
 
 static bool onReset = false;
+static bool onMeasureNow = false;
 
 static bool messageSending = true;
 static uint64_t send_interval_ms;
@@ -78,8 +79,11 @@ int DeviceMethodCallback(const char *methodName, const unsigned char *payload, i
     int result = 200;
 
     LogInfo("DeviceMethodCallback!");
+
     if (strcmp(methodName,"Reset") == 0) {
         onReset = HandleReset(response, responseLength);
+    } else if (strcmp(methodName, "MeasureNow") == 0) {
+        onMeasureNow = HandleMeasureNow(response, responseLength);
     } else {
         result = 500;
         HandleUnknownMethod(response, responseLength);
@@ -121,11 +125,11 @@ void loop()
         }
     }
 
-    if (nextMeasurementDue || nextMessageDue) {
+    if (nextMeasurementDue || nextMessageDue || onMeasureNow) {
         // Read Sensors ...
         char messagePayload[MESSAGE_MAX_LEN];
 
-        bool temperatureAlert = CreateTelemetryMessage(messagePayload, nextMessageDue, &deviceSettings);
+        bool temperatureAlert = CreateTelemetryMessage(messagePayload, nextMessageDue || onMeasureNow, &deviceSettings);
 
         if (! suppressMessages) {
 

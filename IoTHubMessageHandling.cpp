@@ -98,7 +98,7 @@ void CreateEventMsg(char *payload, IOTC_EVENT_TYPE eventType)
     json_value_free(root_value);
 }
 
-const char *deviceFirmware = "1.4.0";
+const char *deviceFirmware = DEVICE_FIRMWARE_VERSION;
 const char *deviceLocation = DEVICE_LOCATION;
 const char *deviceId = DEVICE_ID;
 const double deviceLatitude = 52.176;
