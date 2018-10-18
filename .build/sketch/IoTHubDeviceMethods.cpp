@@ -17,6 +17,14 @@ bool HandleReset(unsigned char **response, int *responseLength)
     return true;
 }
 
+bool HandleMeasureNow(unsigned char **response, int *responseLength)
+{
+    const char *ok = "{\"result\":\"OK\"}";
+    LogInfo("HandleMeasureNow called");
+    BuildResponseString(ok, response, responseLength);
+    return true;
+}
+
 bool HandleUnknownMethod(unsigned char **response, int *responseLength)
 {
     const char *ok = "{\"result\":\"NOK\"}";

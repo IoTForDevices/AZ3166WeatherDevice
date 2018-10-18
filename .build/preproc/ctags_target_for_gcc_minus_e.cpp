@@ -18,6 +18,7 @@
 # 17 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino" 2
 
 static bool onReset = false;
+static bool onMeasureNow = false;
 
 static bool messageSending = true;
 static uint64_t send_interval_ms;
@@ -36,16 +37,16 @@ void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *pay
     char payLoadString[length+1];
     snprintf(payLoadString, length, "%s", payLoad);
     do{{ LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 36 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino" 3 4
+# 37 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino" 3 4
    __null
-# 36 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
-   ) l(AZ_LOG_INFO, (strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '/') ? strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '/') + 1 : (strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '\\') ? strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '\\') + 1 : "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino")), __func__, 36, 0x01, "    Payload: Length = %d, Content = %s", length, payLoadString); }; }while((void)0,0);
+# 37 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+   ) l(AZ_LOG_INFO, (strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '/') ? strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '/') + 1 : (strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '\\') ? strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '\\') + 1 : "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino")), __func__, 37, 0x01, "    Payload: Length = %d, Content = %s", length, payLoadString); }; }while((void)0,0);
 
     char *temp = (char *)malloc(length + 1);
     if (temp == 
-# 39 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino" 3 4
+# 40 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino" 3 4
                __null
-# 39 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+# 40 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
                    )
     {
         return;
@@ -85,18 +86,21 @@ bool InitIoTHub()
  * NOTE: These functions must be available inside this source file, prior to the Init and Loop methods.
 
  */
-# 76 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+# 77 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 int DeviceMethodCallback(const char *methodName, const unsigned char *payload, int length, unsigned char **response, int *responseLength)
 {
     int result = 200;
 
     do{{ LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 80 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino" 3 4
+# 81 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino" 3 4
    __null
-# 80 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
-   ) l(AZ_LOG_INFO, (strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '/') ? strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '/') + 1 : (strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '\\') ? strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '\\') + 1 : "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino")), __func__, 80, 0x01, "DeviceMethodCallback!"); }; }while((void)0,0);
+# 81 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+   ) l(AZ_LOG_INFO, (strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '/') ? strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '/') + 1 : (strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '\\') ? strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '\\') + 1 : "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino")), __func__, 81, 0x01, "DeviceMethodCallback!"); }; }while((void)0,0);
+
     if (strcmp(methodName,"Reset") == 0) {
         onReset = HandleReset(response, responseLength);
+    } else if (strcmp(methodName, "MeasureNow") == 0) {
+        onMeasureNow = HandleMeasureNow(response, responseLength);
     } else {
         result = 500;
         HandleUnknownMethod(response, responseLength);
@@ -138,11 +142,11 @@ void loop()
         }
     }
 
-    if (nextMeasurementDue || nextMessageDue) {
+    if (nextMeasurementDue || nextMessageDue || onMeasureNow) {
         // Read Sensors ...
         char messagePayload[256];
 
-        bool temperatureAlert = CreateTelemetryMessage(messagePayload, nextMessageDue, &deviceSettings);
+        bool temperatureAlert = CreateTelemetryMessage(messagePayload, nextMessageDue || onMeasureNow, &deviceSettings);
 
         if (! suppressMessages) {
 

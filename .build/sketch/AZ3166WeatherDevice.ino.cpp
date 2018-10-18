@@ -18,6 +18,7 @@
 #include "ReadSensorData.h"
 
 static bool onReset = false;
+static bool onMeasureNow = false;
 
 static bool messageSending = true;
 static uint64_t send_interval_ms;
@@ -32,19 +33,19 @@ static DEVICE_SETTINGS deviceSettings { DEFAULT_MEASURE_INTERVAL, DEFAULT_SEND_I
                                         DEFAULT_MAX_DELTA_BETWEEN_MEASUREMENTS,
                                         0.0, 0.0, 0.0 };
 
-#line 33 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+#line 34 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *payLoad, int length);
-#line 49 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+#line 50 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 bool InitWifi();
-#line 62 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+#line 63 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 bool InitIoTHub();
-#line 76 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+#line 77 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 int DeviceMethodCallback(const char *methodName, const unsigned char *payload, int length, unsigned char **response, int *responseLength);
-#line 90 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+#line 94 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 void setup();
-#line 108 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+#line 112 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 void loop();
-#line 33 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+#line 34 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *payLoad, int length){
     char payLoadString[length+1];
     snprintf(payLoadString, length, "%s", payLoad);
@@ -93,8 +94,11 @@ int DeviceMethodCallback(const char *methodName, const unsigned char *payload, i
     int result = 200;
 
     LogInfo("DeviceMethodCallback!");
+
     if (strcmp(methodName,"Reset") == 0) {
         onReset = HandleReset(response, responseLength);
+    } else if (strcmp(methodName, "MeasureNow") == 0) {
+        onMeasureNow = HandleMeasureNow(response, responseLength);
     } else {
         result = 500;
         HandleUnknownMethod(response, responseLength);
@@ -136,11 +140,11 @@ void loop()
         }
     }
 
-    if (nextMeasurementDue || nextMessageDue) {
+    if (nextMeasurementDue || nextMessageDue || onMeasureNow) {
         // Read Sensors ...
         char messagePayload[MESSAGE_MAX_LEN];
 
-        bool temperatureAlert = CreateTelemetryMessage(messagePayload, nextMessageDue, &deviceSettings);
+        bool temperatureAlert = CreateTelemetryMessage(messagePayload, nextMessageDue || onMeasureNow, &deviceSettings);
 
         if (! suppressMessages) {
 
