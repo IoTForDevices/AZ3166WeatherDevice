@@ -30,13 +30,14 @@
 
 #define DEVICE_ID "AZ3166-WS01"
 #define DEVICE_LOCATION "Home - Living Room"
-#define DEVICE_FIRMWARE_VERSION "1.6.0"
+#define DEVICE_FIRMWARE_VERSION "1.7.0"
 
 // Telemetry
 #define JSON_TEMPERATURE       "temperature"
 #define JSON_HUMIDITY          "humidity"
 #define JSON_PRESSURE          "pressure"
 #define JSON_TEMPERATURE_ALERT "temperatureAlert"
+#define JSON_UPTIME            "upTime"
 
 #define JSON_MESSAGEID         "messageId"
 #define JSON_DEVICEID          "deviceId"

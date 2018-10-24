@@ -29,6 +29,26 @@ temperatureCorrection | float
 pressureCorrection | float
 humidityCorrection | float
 
+## Connecting another device to the IoT Central Application
+
+Since GA, IoT Central makes use of DPS to securily connect and provision devices. The new MXChip firmware supports this. However, if you want to make use
+of existing code on your MXChip device, you probably need to manually set the connection string to IoT Central. Execute these steps to get a connetion string from your device. The simplest way is to do this from your Azure Cloud Shell:
+
+- mkdir ~/MXChip
+- cd ~/MXChip
+- npm install dps-keygen
+- wget https://github.com/Azure/dps-keygen/blob/master/bin/linux/dps_cstr?raw=true -O dps_cstr
+- chmod +x dps_cstr
+
+This is the time to find the connection details of your physical device in IoT Central in order to build a connection string to the device. You need the following information:
+
+- Scope ID
+- Device ID
+- Primary Key
+
+Now execute the following command inside the Azure Cloud Shell:
+
+- ./dps_cstr [Scope ID] [Device ID] [Primary Key]
 
 
 

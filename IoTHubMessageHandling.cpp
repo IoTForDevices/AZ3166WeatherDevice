@@ -10,6 +10,7 @@
 
 #define DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING_NOT
 #define DIAGNOSTIC_INFO_TWIN_PARSING_NOT
+#define DIAGNOSTIC_INFO_SENSOR_DATA_NOT
 
 static float temperature = 0;
 static float humidity = 0;
@@ -20,20 +21,28 @@ bool CreateTelemetryMessage(char *payload, bool forceCreate, DEVICE_SETTINGS *pD
     float t = ReadTemperature() + pDeviceSettings->temperatureCorrection;
     float h = ReadHumidity() + pDeviceSettings->humidityCorrection;
     float p = ReadPressure() + pDeviceSettings->pressureCorrection;
+    float deltaT = abs(temperature - t);
+    float deltaH = abs(humidity - h);
+    float deltaP = abs(pressure - p);
     bool temperatureAlert = false;
 
+#ifdef DIAGNOSTIC_INFO_SENSOR_DATA
+    LogInfo("DIAGNOSTIC_INFO_SENSOR_DATA  deltaT = %.2f, deltaH = %.2f, deltaP = %.2f", deltaT, deltaH, deltaP);
+#endif
+
     // Correct for sensor jitter
-    bool temperatureChanged = (abs(temperature - t) > pDeviceSettings->temperatureAccuracy) && (abs(temperature - t) < pDeviceSettings->maxDeltaBetweenMeasurements);
-    bool humidityChanged = (abs(humidity - h) > pDeviceSettings->humidityAccuracy) && (abs(humidity - t) < pDeviceSettings->maxDeltaBetweenMeasurements);
-    bool pressureChanged = (abs(pressure - p) > pDeviceSettings->pressureAccuracy) && (abs(pressureChanged - t) < pDeviceSettings->maxDeltaBetweenMeasurements);
+    bool temperatureChanged = (deltaT > pDeviceSettings->temperatureAccuracy) && (deltaT < pDeviceSettings->maxDeltaBetweenMeasurements);
+    bool humidityChanged    = (deltaH > pDeviceSettings->humidityAccuracy)    && (deltaH < pDeviceSettings->maxDeltaBetweenMeasurements);
+    bool pressureChanged    = (deltaP > pDeviceSettings->pressureAccuracy)    && (deltaP < pDeviceSettings->maxDeltaBetweenMeasurements);
 
     if (forceCreate) {
         temperatureChanged = humidityChanged = pressureChanged = true;
     }
 
-#ifdef DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING
-    LogInfo("DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING  temperatureChanged = %d, humidityChanged = %d, pressureChanged = %d", (int)temperatureChanged, (int)humidityChanged, (int)pressureChanged);
-    LogInfo("DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING  t = %.1f, h = %.1f, p = %.1f", t, h, p);
+#ifdef DIAGNOSTIC_INFO_SENSOR_DATA
+    LogInfo("DIAGNOSTIC_INFO_SENSOR_DATA  temperatureChanged = %d, humidityChanged = %d, pressureChanged = %d", (int)temperatureChanged, (int)humidityChanged, (int)pressureChanged);
+    LogInfo("DIAGNOSTIC_INFO_SENSOR_DATA  temperature = %.2f, humidity = %.2f, pressure = %.2f", temperature, humidity, pressure);
+    LogInfo("DIAGNOSTIC_INFO_SENSOR_DATA  t = %.2f, h = %.2f, p = %.2f", t, h, p);
 #endif
 
     if (temperatureChanged || humidityChanged || pressureChanged) {
@@ -79,6 +88,7 @@ void CreateEventMsg(char *payload, IOTC_EVENT_TYPE eventType)
 {
 #ifdef DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING
     LogInfo("DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING  CreateEventMessage Invoked");
+    delay(200);
 #endif
 
     JSON_Value *root_value = json_value_init_object();
@@ -105,7 +115,7 @@ const double deviceLatitude = 52.176;
 const double deviceLongitude = 4.65624;
 
 const char *twinProperties="{\"Firmware\":\"%s\",\"Model\":\"%s\",\"Location\":\"%s\",\"Latitude\":%f,\"Longitude\":%f, \ 
-                             \"measureInterval\":%d,\"sendInterval\":%d,\"warmingUpTime\":%d, \
+                             \"measureInterval\":%d,\"sendInterval\":%d,\"warmingUpTime\":%d,\"sleepTime\":%d, \
                              \"temperatureAlert\":%d,\"temperatureAccuracy\":%1.1f,\"humidityAccuracy\":%1.1f,\"pressureAccuracy\":%1.1f, \
                              \"maxDeltaBetweenMeasurements\":%d, \
                              \"temperatureCorrection\":%1.1f,\"humidityCorrection\":%1.1f,\"pressureCorrection\":%1.1f }";
@@ -114,7 +124,7 @@ bool SendDeviceInfo(DEVICE_SETTINGS *pDeviceSettings)
 {
     char reportedProperties[2048];
     snprintf(reportedProperties, 2048, twinProperties, deviceFirmware, deviceId, deviceLocation, deviceLatitude, deviceLongitude, 
-        pDeviceSettings->measureInterval, pDeviceSettings->sendInterval, pDeviceSettings->warmingUpTime,
+        pDeviceSettings->measureInterval, pDeviceSettings->sendInterval, pDeviceSettings->warmingUpTime, pDeviceSettings->dSmsec,
         pDeviceSettings->temperatureAlert, pDeviceSettings->temperatureAccuracy, pDeviceSettings->humidityAccuracy, pDeviceSettings->pressureAccuracy,
         pDeviceSettings->maxDeltaBetweenMeasurements,
         pDeviceSettings->temperatureCorrection, pDeviceSettings->humidityCorrection, pDeviceSettings->pressureCorrection);
@@ -150,6 +160,9 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         if (json_object_dothas_value(root_object,"desired.warmingUpTime.value")) {
             pDeviceSettings->warmingUpTime = (int)json_object_dotget_number(root_object, "desired.warmingUpTime.value");
             pDeviceSettings->wUTmsec = pDeviceSettings->warmingUpTime * 60000;
+        }
+        if (json_object_dothas_value(root_object,"desired.sleepTime.value")) {
+            pDeviceSettings->dSmsec = (int)json_object_dotget_number(root_object, "desired.sleepTime.value");
         }
         if (json_object_dothas_value(root_object,"desired.temperatureAlert.value")) {
             pDeviceSettings->temperatureAlert = (int)json_object_dotget_number(root_object, "desired.temperatureAlert.value");
@@ -189,6 +202,9 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
             pDeviceSettings->warmingUpTime = (int)json_object_dotget_number(root_object, "warmingUpTime.value");
             pDeviceSettings->wUTmsec = pDeviceSettings->warmingUpTime * 60000;
         }
+        if (json_object_dothas_value(root_object,"sleepTime.value")) {
+            pDeviceSettings->dSmsec = (int)json_object_dotget_number(root_object, "sleepTime.value");
+        }
         if (json_object_dothas_value(root_object,"temperatureAlert.value")) {
             pDeviceSettings->temperatureAlert = (int)json_object_dotget_number(root_object, "temperatureAlert.value");
         }
@@ -218,9 +234,12 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
     json_value_free(root_value);
 
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING
-    LogInfo("DIAGNOSTIC_INFO_TWIN_PARSING  measureInterval = %d, sendInterval = %d, warmingUpTime = %d", pDeviceSettings->measureInterval, pDeviceSettings->sendInterval, pDeviceSettings->warmingUpTime);
+    LogInfo("DIAGNOSTIC_INFO_TWIN_PARSING  measureInterval = %d, sendInterval = %d, warmingUpTime = %d, delayTime = %d", pDeviceSettings->measureInterval, pDeviceSettings->sendInterval, pDeviceSettings->warmingUpTime, pDeviceSettings->dSmsec);
+    delay(200);
     LogInfo("DIAGNOSTIC_INFO_TWIN_PARSING  temperatureAccuracy = %f, pressureAccuracy = %f, humidityAccuracy = %f", pDeviceSettings->temperatureAccuracy, pDeviceSettings->pressureAccuracy, pDeviceSettings->humidityAccuracy);
+    delay(200);
     LogInfo("DIAGNOSTIC_INFO_TWIN_PARSING  temperatureAlert = %d, maxDeltaBetweenMeasurements = %d", pDeviceSettings->temperatureAlert, pDeviceSettings->maxDeltaBetweenMeasurements);
+    delay(200);
 #endif
 
     return sendAck;
