@@ -17,6 +17,8 @@
 # 16 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino" 2
 # 17 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino" 2
 
+
+
 static bool onReset = false;
 static bool onMeasureNow = false;
 
@@ -24,29 +26,31 @@ static bool messageSending = true;
 static uint64_t send_interval_ms;
 static uint64_t measure_interval_ms;
 static uint64_t warming_up_interval_ms;
+static uint64_t deviceStartTime = 0;
+
 static bool reportProperties = false;
 
-static DEVICE_SETTINGS deviceSettings { 10, 300, 2,
-                                        10000, 300000, 120000,
+static DEVICE_SETTINGS deviceSettings { 10, 300, 2, 0,
+                                        10000, 300000, 120000, 500,
                                         40,
                                         0.2, 0.2, 0.5,
                                         5,
                                         0.0, 0.0, 0.0 };
 
-void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *payLoad, int length){
+void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *payLoad, int length)
+{
     char payLoadString[length+1];
     snprintf(payLoadString, length, "%s", payLoad);
-    do{{ LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 37 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino" 3 4
-   __null
-# 37 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
-   ) l(AZ_LOG_INFO, (strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '/') ? strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '/') + 1 : (strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '\\') ? strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '\\') + 1 : "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino")), __func__, 37, 0x01, "    Payload: Length = %d, Content = %s", length, payLoadString); }; }while((void)0,0);
+
+
+
+
 
     char *temp = (char *)malloc(length + 1);
     if (temp == 
-# 40 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino" 3 4
+# 48 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino" 3 4
                __null
-# 40 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+# 48 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
                    )
     {
         return;
@@ -86,16 +90,14 @@ bool InitIoTHub()
  * NOTE: These functions must be available inside this source file, prior to the Init and Loop methods.
 
  */
-# 77 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
+# 85 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
 int DeviceMethodCallback(const char *methodName, const unsigned char *payload, int length, unsigned char **response, int *responseLength)
 {
     int result = 200;
 
-    do{{ LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 81 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino" 3 4
-   __null
-# 81 "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino"
-   ) l(AZ_LOG_INFO, (strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '/') ? strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '/') + 1 : (strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '\\') ? strrchr("c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino", '\\') + 1 : "c:\\Repo\\AZ3166WeatherDevice\\AZ3166WeatherDevice.ino")), __func__, 81, 0x01, "DeviceMethodCallback!"); }; }while((void)0,0);
+
+
+
 
     if (strcmp(methodName,"Reset") == 0) {
         onReset = HandleReset(response, responseLength);
@@ -123,7 +125,7 @@ void setup()
     SendDeviceInfo(&deviceSettings);
 
     SetupSensors();
-    send_interval_ms = measure_interval_ms = warming_up_interval_ms = SystemTickCounterRead();
+    send_interval_ms = measure_interval_ms = warming_up_interval_ms = deviceStartTime = SystemTickCounterRead();
 }
 
 void loop()
@@ -146,20 +148,32 @@ void loop()
         // Read Sensors ...
         char messagePayload[256];
 
+        deviceSettings.upTime = (int)(SystemTickCounterRead() - deviceStartTime) / 1000;
+
         bool temperatureAlert = CreateTelemetryMessage(messagePayload, nextMessageDue || onMeasureNow, &deviceSettings);
 
         if (! suppressMessages) {
 
             // ... and send data if the sensor value(s) differ from the previous reading or when the device needs to give a sign of life.
             if (strlen(messagePayload) != 0) {
+                char szUpTime[11];
+
+                snprintf(szUpTime, 10, "%d", deviceSettings.upTime);
                 EVENT_INSTANCE* message = DevKitMQTTClient_Event_Generate(messagePayload, MESSAGE);
                 DevKitMQTTClient_Event_AddProp(message, "temperatureAlert", temperatureAlert ? "true" : "false");
+                DevKitMQTTClient_Event_AddProp(message, "upTime", szUpTime);
+
                 DevKitMQTTClient_SendEventInstance(message);
                 send_interval_ms = SystemTickCounterRead(); // reset the send interval because we just did send a message 
             }
         }
 
         measure_interval_ms = SystemTickCounterRead(); // reset regardless of message send after each sensor reading
+
+        if (onMeasureNow) {
+            onMeasureNow = false;
+        }
+
     } else if (reportProperties) {
         SendDeviceInfo(&deviceSettings);
         reportProperties = false;
@@ -188,5 +202,9 @@ void loop()
         __NVIC_SystemReset();
     }
 
+
+
+
     delay(500);
+
 }

@@ -11,9 +11,11 @@ typedef struct {
     int measureInterval;                // Different Intervals
     int sendInterval;
     int warmingUpTime;
+    int upTime;                         // Device uptime in seconds
     int mImsec;                         // For internal use only - conversion of all intervals into msec
     int sImsec;
     int wUTmsec;
+    int dSmsec;                         // Device sleep time in msec
     int temperatureAlert;               // High temperature alert value
     float temperatureAccuracy;          // Different sensor reading accuracies
     float pressureAccuracy;
