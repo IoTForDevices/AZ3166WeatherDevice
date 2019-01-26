@@ -6,7 +6,6 @@
 
 #include "ReadSensorData.h"
 #include "AZ3166Leds.h"
-#include "IoTHubMessageHandling.h"
 
 #define DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING_NOT
 #define DIAGNOSTIC_INFO_TWIN_PARSING_NOT
@@ -18,6 +17,8 @@ static float pressure = 0;
 
 bool CreateTelemetryMessage(char *payload, bool forceCreate, DEVICE_SETTINGS *pDeviceSettings)
 {
+    bool bReadHumidity = pDeviceSettings->enableHumidityReading;
+    bool bReadPressure = pDeviceSettings->enablePressureReading;
     float t = ReadTemperature() + pDeviceSettings->temperatureCorrection;
     float h = ReadHumidity() + pDeviceSettings->humidityCorrection;
     float p = ReadPressure() + pDeviceSettings->pressureCorrection;
@@ -41,8 +42,8 @@ bool CreateTelemetryMessage(char *payload, bool forceCreate, DEVICE_SETTINGS *pD
 
 #ifdef DIAGNOSTIC_INFO_SENSOR_DATA
     LogInfo("DIAGNOSTIC_INFO_SENSOR_DATA  temperatureChanged = %d, humidityChanged = %d, pressureChanged = %d", (int)temperatureChanged, (int)humidityChanged, (int)pressureChanged);
-    LogInfo("DIAGNOSTIC_INFO_SENSOR_DATA  temperature = %.2f, humidity = %.2f, pressure = %.2f", temperature, humidity, pressure);
-    LogInfo("DIAGNOSTIC_INFO_SENSOR_DATA  t = %.2f, h = %.2f, p = %.2f", t, h, p);
+    LogInfo("DIAGNOSTIC_INFO_SENSOR_DATA  temperature = %.1f, humidity = %.1f, pressure = %.1f", temperature, humidity, pressure);
+    LogInfo("DIAGNOSTIC_INFO_SENSOR_DATA  t = %.1f, h = %.1f, p = %.1f", t, h, p);
 #endif
 
     if (temperatureChanged || humidityChanged || pressureChanged) {
@@ -54,7 +55,7 @@ bool CreateTelemetryMessage(char *payload, bool forceCreate, DEVICE_SETTINGS *pD
 
         if (temperatureChanged) {
             temperature = t;
-            json_object_set_number(root_object, JSON_TEMPERATURE, temperature);
+            json_object_set_number(root_object, JSON_TEMPERATURE, Round(temperature));
         }
 
         if(temperature > DEFAULT_TEMPERATURE_ALERT) {
@@ -63,15 +64,19 @@ bool CreateTelemetryMessage(char *payload, bool forceCreate, DEVICE_SETTINGS *pD
 
         if (humidityChanged) {
             humidity = h;
-            json_object_set_number(root_object, JSON_HUMIDITY, humidity);
+            if (bReadHumidity) {
+                json_object_set_number(root_object, JSON_HUMIDITY, Round(humidity));
+            }
         }
 
         if (pressureChanged) {
             pressure = p;
-            json_object_set_number(root_object, JSON_PRESSURE, pressure);
+            if (bReadPressure) {
+                json_object_set_number(root_object, JSON_PRESSURE, Round(pressure));
+            }
         }
 
-        ShowTelemetryData(temperature, humidity, pressure);
+        ShowTelemetryData(temperature, humidity, pressure, pDeviceSettings);
 
         serialized_string = json_serialize_to_string_pretty(root_value);
 
@@ -81,6 +86,7 @@ bool CreateTelemetryMessage(char *payload, bool forceCreate, DEVICE_SETTINGS *pD
     } else {
         *payload = '\0';
     }
+
     return temperatureAlert;
 }
 
@@ -111,23 +117,23 @@ void CreateEventMsg(char *payload, IOTC_EVENT_TYPE eventType)
 const char *deviceFirmware = DEVICE_FIRMWARE_VERSION;
 const char *deviceLocation = DEVICE_LOCATION;
 const char *deviceId = DEVICE_ID;
-const double deviceLatitude = 52.176;
-const double deviceLongitude = 4.65624;
 
-const char *twinProperties="{\"Firmware\":\"%s\",\"Model\":\"%s\",\"Location\":\"%s\",\"Latitude\":%f,\"Longitude\":%f, \ 
+const char *twinProperties="{\"Firmware\":\"%s\",\"Model\":\"%s\",\"Location\":\"%s\", \ 
                              \"measureInterval\":%d,\"sendInterval\":%d,\"warmingUpTime\":%d,\"sleepTime\":%d, \
                              \"temperatureAlert\":%d,\"temperatureAccuracy\":%1.1f,\"humidityAccuracy\":%1.1f,\"pressureAccuracy\":%1.1f, \
                              \"maxDeltaBetweenMeasurements\":%d, \
-                             \"temperatureCorrection\":%1.1f,\"humidityCorrection\":%1.1f,\"pressureCorrection\":%1.1f }";
+                             \"temperatureCorrection\":%1.1f,\"humidityCorrection\":%1.1f,\"pressureCorrection\":%1.1f, \
+                             \"readHumidity\":%d, \"readPressure\":%d }";
 
 bool SendDeviceInfo(DEVICE_SETTINGS *pDeviceSettings)
 {
     char reportedProperties[2048];
-    snprintf(reportedProperties, 2048, twinProperties, deviceFirmware, deviceId, deviceLocation, deviceLatitude, deviceLongitude, 
+    snprintf(reportedProperties, 2048, twinProperties, deviceFirmware, deviceId, deviceLocation, 
         pDeviceSettings->measureInterval, pDeviceSettings->sendInterval, pDeviceSettings->warmingUpTime, pDeviceSettings->dSmsec,
         pDeviceSettings->temperatureAlert, pDeviceSettings->temperatureAccuracy, pDeviceSettings->humidityAccuracy, pDeviceSettings->pressureAccuracy,
         pDeviceSettings->maxDeltaBetweenMeasurements,
-        pDeviceSettings->temperatureCorrection, pDeviceSettings->humidityCorrection, pDeviceSettings->pressureCorrection);
+        pDeviceSettings->temperatureCorrection, pDeviceSettings->humidityCorrection, pDeviceSettings->pressureCorrection,
+        pDeviceSettings->enableHumidityReading ? 1 : 0, pDeviceSettings->enablePressureReading ? 1 : 0);
     return DevKitMQTTClient_ReportState(reportedProperties);
 }
 
@@ -188,6 +194,12 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         if (json_object_dothas_value(root_object,"desired.humidityCorrection.value")) {
             pDeviceSettings->humidityCorrection = json_object_dotget_number(root_object, "desired.humidityCorrection.value");
         }
+        if (json_object_dothas_value(root_object,"desired.enableHumidityReading.value")) {
+            pDeviceSettings->enableHumidityReading = json_object_dotget_boolean(root_object, "desired.enableHumidityReading.value");
+        }
+        if (json_object_dothas_value(root_object,"desired.enablePressureReading.value")) {
+            pDeviceSettings->enablePressureReading = json_object_dotget_boolean(root_object, "desired.enablePressureReading.value");
+        }
     } else {
         sendAck = true;
         if (json_object_dothas_value(root_object,"measureInterval.value")) {
@@ -229,6 +241,12 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         if (json_object_dothas_value(root_object,"humidityCorrection.value")) {
             pDeviceSettings->humidityCorrection = json_object_dotget_number(root_object, "humidityCorrection.value");
         }
+        if (json_object_dothas_value(root_object,"enableHumidityReading.value")) {
+            pDeviceSettings->enableHumidityReading = json_object_dotget_boolean(root_object, "enableHumidityReading.value");
+        }
+        if (json_object_dothas_value(root_object,"enablePressureReading.value")) {
+            pDeviceSettings->enablePressureReading = json_object_dotget_boolean(root_object, "enablePressureReading.value");
+        }
     }
 
     json_value_free(root_value);
@@ -240,6 +258,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
     delay(200);
     LogInfo("DIAGNOSTIC_INFO_TWIN_PARSING  temperatureAlert = %d, maxDeltaBetweenMeasurements = %d", pDeviceSettings->temperatureAlert, pDeviceSettings->maxDeltaBetweenMeasurements);
     delay(200);
+    LogInfo("DIAGNOSTIC_INFO_TWIN_PARSING  enableHumidityReading = %d, enablePressureReading = %d", pDeviceSettings->enableHumidityReading, pDeviceSettings->enablePressureReading);
 #endif
 
     return sendAck;

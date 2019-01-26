@@ -164,7 +164,11 @@ void loop()
                 DevKitMQTTClient_Event_AddProp(message, "upTime", szUpTime);
 
                 DevKitMQTTClient_SendEventInstance(message);
-                send_interval_ms = SystemTickCounterRead(); // reset the send interval because we just did send a message 
+
+                if (nextMessageDue)
+                {
+                    send_interval_ms = SystemTickCounterRead(); // reset the send interval because we just did send a message
+                }
             }
         }
 
@@ -205,6 +209,6 @@ void loop()
 
 
 
-    delay(500);
+    delay(deviceSettings.dSmsec);
 
 }

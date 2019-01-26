@@ -10,6 +10,7 @@ typedef enum {
 typedef struct {
     int measureInterval;                // Different Intervals
     int sendInterval;
+    int sleepInterval;
     int warmingUpTime;
     int upTime;                         // Device uptime in seconds
     int mImsec;                         // For internal use only - conversion of all intervals into msec
@@ -24,6 +25,8 @@ typedef struct {
     float temperatureCorrection;        // Sensor reading correction factors
     float pressureCorrection;
     float humidityCorrection;
+    bool enableHumidityReading;         // Flags to allow suppressing sending of Humidity / Pressure sensor readings
+    bool enablePressureReading;
 } DEVICE_SETTINGS;
 
 bool CreateTelemetryMessage(char *payload, bool forceCreate, DEVICE_SETTINGS *pDeviceSettings);

@@ -155,7 +155,11 @@ void loop()
                 DevKitMQTTClient_Event_AddProp(message, JSON_UPTIME, szUpTime);
 
                 DevKitMQTTClient_SendEventInstance(message);
-                send_interval_ms = SystemTickCounterRead();     // reset the send interval because we just did send a message 
+
+                if (nextMessageDue)
+                {
+                    send_interval_ms = SystemTickCounterRead();     // reset the send interval because we just did send a message
+                } 
             }
         }
 
@@ -196,6 +200,6 @@ void loop()
 #ifdef DIAGNOSTIC_INFO_MAINMODULE
     delay(2000);
 #else
-    delay(DEFAULT_WAKEUP_INTERVAL);
+    delay(deviceSettings.dSmsec);
 #endif
 }

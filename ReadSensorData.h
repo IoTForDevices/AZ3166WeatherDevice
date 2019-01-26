@@ -13,6 +13,7 @@
 #define READSENSORDATA_H
 
 void SetupSensors();
+float Round(float);
 float ReadHumidity();
 float ReadTemperature();
 float ReadPressure();

@@ -17,6 +17,12 @@ void SetupSensors()
     lp_sensor->init(NULL);
 }
 
+float Round(float var) 
+{ 
+    float value = (int)(var * 10 + .5); 
+    return (float)value / 10; 
+} 
+
 float ReadHumidity()
 {
     float h = 0;
@@ -32,7 +38,7 @@ float ReadHumidity()
     ht_sensor->disable();
     ht_sensor->reset();
 
-    return h;
+    return Round(h);
 }
 
 float ReadTemperature()
@@ -50,7 +56,7 @@ float ReadTemperature()
     ht_sensor->disable();
     ht_sensor->reset();
 
-    return t;
+    return Round(t);
 }
 
 float ReadPressure()
@@ -62,7 +68,7 @@ float ReadPressure()
         valueRead = lp_sensor->getPressure(&p) == 0;
     }
 
-    return p;
+    return Round(p);
 }
 
 bool IsButtonClicked(unsigned char ulPin)
@@ -75,4 +81,3 @@ bool IsButtonClicked(unsigned char ulPin)
     }
     return false;
 }
-
