@@ -29,8 +29,8 @@
 #define DEFAULT_TEMPERATURE_ALERT 40
 
 #define DEVICE_ID "AZ3166-Proto"
-#define DEVICE_LOCATION "Home - Office"
-#define DEVICE_FIRMWARE_VERSION "1.8.2"
+#define DEVICE_LOCATION "On the road"
+#define DEVICE_FIRMWARE_VERSION "1.8.3"
 
 // Telemetry
 #define JSON_TEMPERATURE       "temperature"

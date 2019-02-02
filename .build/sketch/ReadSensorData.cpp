@@ -17,10 +17,10 @@ void SetupSensors()
     lp_sensor->init(NULL);
 }
 
-float Round(float var) 
+double Round(float var) 
 { 
-    float value = (int)(var * 10 + .5); 
-    return (float)value / 10; 
+    double value = (int)(var * 10 + .5); 
+    return (double)value / 10; 
 } 
 
 float ReadHumidity()
