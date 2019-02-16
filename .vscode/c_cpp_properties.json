@@ -7,19 +7,15 @@
             ],
             "includePath": [
                 "${workspaceRoot}",
-                "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\**",
-                "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\tools\\**",
+                "C:\\Users\\mstruys\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.6.1\\**",
+                "C:\\Users\\mstruys\\AppData\\Local\\Arduino15\\packages\\AZ3166\\tools\\**",
                 "C:\\Program Files (x86)\\Arduino\\hardware\\tools\\**",
                 "C:\\Program Files (x86)\\Arduino\\libraries\\**",
-                "C:\\Users\\mstru\\Documents\\Arduino\\libraries\\**",
-                "C:\\Users\\mstru\\Documents\\Arduino\\hardware\\tools\\**",
-                "C:\\Users\\mstruys\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.4.1\\**",
-                "C:\\Users\\mstruys\\AppData\\Local\\Arduino15\\packages\\AZ3166\\tools\\**",
+                "C:\\Users\\mstruys\\Documents\\Arduino\\hardware\\tools\\**",
                 "C:\\Users\\mstruys\\Documents\\Arduino\\libraries\\**"
             ],
             "forcedInclude": [
-                "C:\\Users\\mstru\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.3.7\\cores\\arduino\\Arduino.h",
-                "C:\\Users\\mstruys\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.4.1\\cores\\arduino\\Arduino.h"
+                "C:\\Users\\mstruys\\AppData\\Local\\Arduino15\\packages\\AZ3166\\hardware\\stm32f4\\1.6.1\\cores\\arduino\\Arduino.h"
             ],
             "intelliSenseMode": "clang-x64",
             "cStandard": "c11",

@@ -114,9 +114,9 @@ void CreateEventMsg(char *payload, IOTC_EVENT_TYPE eventType)
     json_value_free(root_value);
 }
 
-const char *deviceFirmware = DEVICE_FIRMWARE_VERSION;
-const char *deviceLocation = DEVICE_LOCATION;
-const char *deviceId = DEVICE_ID;
+// const char *deviceFirmware = DEVICE_FIRMWARE_VERSION;
+// const char *deviceLocation = DEVICE_LOCATION;
+// const char *deviceId = DEVICE_ID;
 
 const char *twinProperties="{\"Firmware\":\"%s\",\"Model\":\"%s\",\"Location\":\"%s\", \ 
                              \"measureInterval\":%d,\"sendInterval\":%d,\"warmingUpTime\":%d,\"sleepTime\":%d, \
@@ -128,7 +128,17 @@ const char *twinProperties="{\"Firmware\":\"%s\",\"Model\":\"%s\",\"Location\":\
 bool SendDeviceInfo(DEVICE_SETTINGS *pDeviceSettings)
 {
     char reportedProperties[2048];
-    snprintf(reportedProperties, 2048, twinProperties, deviceFirmware, deviceId, deviceLocation, 
+
+    // Check for a configuration file to overrule the 'statically' set deviceFirmware, deviceLoaction and deviceId.
+    // Open a file located on the device
+    // char *devFW = (config ? config.devFW : deviceFirmware);
+    char *devFW = DEVICE_FIRMWARE_VERSION;
+    char *devLoc = DEVICE_LOCATION;
+    char *devId = DEVICE_ID;
+    // end check
+
+
+    snprintf(reportedProperties, 2048, twinProperties, devFW, devId, devLoc, 
         pDeviceSettings->measureInterval, pDeviceSettings->sendInterval, pDeviceSettings->warmingUpTime, pDeviceSettings->dSmsec,
         pDeviceSettings->temperatureAlert, pDeviceSettings->temperatureAccuracy, pDeviceSettings->humidityAccuracy, pDeviceSettings->pressureAccuracy,
         pDeviceSettings->maxDeltaBetweenMeasurements,
