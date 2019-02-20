@@ -1,8 +1,0 @@
-{
-    "files.exclude": {
-        ".build": true
-    },
-    "files.associations": {
-        "type_traits": "cpp"
-    }
-}
