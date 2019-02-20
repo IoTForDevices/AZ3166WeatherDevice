@@ -50,5 +50,16 @@ Now execute the following command inside the Azure Cloud Shell:
 
 - ./dps_cstr [Scope ID] [Device ID] [Primary Key]
 
+## OTA updates
+
+The same mechanism is used that is shown in the Azure IoT Workbench OTA example for the AZ3166. The steps are:
+
+- Provide updated code
+- Increase version number in Config.h file
+- Compile only and store the .bin file in an Azure blob
+- Calculate the checksum and record the file size of the new version of the firmware (workbench functionaly available)
+- Use the Update Firmware Command inside Azure IoT Central Weather Station app to trigger an update.
+- 
+
 
 

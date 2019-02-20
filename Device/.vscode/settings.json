@@ -1,0 +1,9 @@
+{
+    "files.exclude": {
+        ".build": true,
+        ".iotworkbenchproject": true
+    },
+    "files.associations": {
+        "type_traits": "cpp"
+    }
+}

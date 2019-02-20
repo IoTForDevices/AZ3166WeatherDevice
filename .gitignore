@@ -33,3 +33,4 @@
 
 # Temporary build folder
 .\.build
+.vscode/c_cpp_properties.json
