@@ -30,7 +30,7 @@
 
 #define DEVICE_ID "AZ3166-Proto"
 #define DEVICE_LOCATION "On the road"
-#define DEVICE_FIRMWARE_VERSION "2.0.0"
+#define DEVICE_FIRMWARE_VERSION "2.0.1"
 
 // Telemetry
 #define JSON_TEMPERATURE       "temperature"
