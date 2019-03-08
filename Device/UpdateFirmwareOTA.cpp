@@ -6,6 +6,8 @@
 #include "SystemTime.h"
 #include "Config.h"
 
+#define DIAGNOSTIC_INFO_UPDATEFIRMWARE
+
 static char* currentFirmwareVersion = DEVICE_FIRMWARE_VERSION;
 
 static bool hasWifi = false;
@@ -81,7 +83,9 @@ void OTAUpdateFailed(const char* failedMsg)
   Screen.print(1, "OTA failed:");
   Screen.print(2, failedMsg);
   Screen.print(3, " ");
+#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
   LogInfo("Failed to update firmware %s: %s, disable OTA update.", fwInfo.fwVersion != NULL ? fwInfo.fwVersion : "<unknown>", failedMsg);
+#endif
 }
 
 void SetNewFirmwareInfo(const char *pszFWVersion, const char *pszFWLocation, const char *pszFWChecksum, int fileSize)
@@ -104,21 +108,29 @@ void SetNewFirmwareInfo(const char *pszFWVersion, const char *pszFWLocation, con
 // Check for new firmware
 void CheckNewFirmware()
 {
+#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
   LogInfo("CheckNewFirmware called!");
+#endif
 
   if (!enableOTA)
   {
+#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
     LogInfo("enableOTA = false, not updating firmware!");
+#endif
     FreeFwInfo();
     return;
   }
 
+#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
   LogInfo("fwInfo initialized: %s", fwInfo.fwVersion);
+#endif
 
   if (fwInfo.fwVersion == NULL || fwInfo.fwPackageURI == NULL)
   {
     // Disable 
+#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
     LogInfo("Invalid new firmware infomation retrieved, disable OTA update.");
+#endif
     enableOTA = false;
     FreeFwInfo();
     return;
@@ -127,6 +139,9 @@ void CheckNewFirmware()
   // Check if the URL is https as we require it for safety purpose.
   if (strlen(fwInfo.fwPackageURI) < 6 || (strncmp("https:", fwInfo.fwPackageURI, 6) != 0))
   {
+#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
+    LogInfo("Didn't pass https for secure connection.");
+#endif
     // Report error status, URINotHTTPS
     OTAUpdateFailed("URINotHTTPS");
     FreeFwInfo();
@@ -136,7 +151,9 @@ void CheckNewFirmware()
   // Check if this is a new version.
   if (IoTHubClient_FwVersionCompare(fwInfo.fwVersion, currentFirmwareVersion) <= 0)
   {
+#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
     LogInfo("The firmware version from cloud <= the running firmware version");
+#endif
     FreeFwInfo();
     return;
   }
@@ -144,15 +161,19 @@ void CheckNewFirmware()
   // New firemware
   Screen.print(1, "New firmware:");
   Screen.print(2, fwInfo.fwVersion);
+#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
   LogInfo("New firmware is available: %s.", fwInfo.fwVersion);
-  
+#endif
+
   Screen.print(3, " downloading...");
+#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
   LogInfo(">> Downloading from %s...", fwInfo.fwPackageURI);
+#endif
   // Report downloading status.
   char startTimeStr[30];
   time_t t = time(NULL);
   strftime(startTimeStr, 30, "%Y-%m-%dT%H:%M:%S.0000000Z", gmtime(&t));
-  //ReportOTAStatus(currentFirmwareVersion, fwInfo.fwVersion, OTA_STATUS_DOWNLOADING, fwInfo->fwPackageURI, startTimeStr, "");
+  ReportOTAStatus(currentFirmwareVersion, fwInfo.fwVersion, OTA_STATUS_DOWNLOADING, fwInfo.fwPackageURI, startTimeStr, "");
   
   // Close IoT Hub Client to release the TLS resource for firmware download.
   DevKitMQTTClient_Close();
@@ -166,6 +187,9 @@ void CheckNewFirmware()
   // Check result
   if (fwSize == 0 || fwSize == -1)
   {
+#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
+    LogInfo("Download Failed!");
+#endif
     // Report error status, DownloadFailed
     OTAUpdateFailed("DownloadFailed");
     FreeFwInfo();
@@ -173,6 +197,9 @@ void CheckNewFirmware()
   }
   else if (fwSize == -2)
   {
+#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
+    LogInfo("Firmware update failed due to a device error!", fwInfo.fwPackageURI);
+#endif
     // Report error status, DeviceError
     OTAUpdateFailed("DeviceError");
     FreeFwInfo();
@@ -180,6 +207,9 @@ void CheckNewFirmware()
   }
   else if (fwSize != fwInfo.fwSize)
   {
+#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
+    LogInfo("Firmware update failed due to file size mismatch!", fwInfo.fwPackageURI);
+#endif
     // Report error status, FileSizeNotMatch
     OTAUpdateFailed("FileSizeNotMatch");
     FreeFwInfo();
@@ -198,10 +228,15 @@ void CheckNewFirmware()
     if (checksum == strtoul(fwInfo.fwPackageCheckValue, NULL, 16))
     {
       Screen.print(3, " passed.");
+#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
       LogInfo(">> CRC check passed.");
+#endif
     }
     else 
     {
+#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
+    LogInfo("Firmware update failed due to CRC error!", fwInfo.fwPackageURI);
+#endif
       // Report error status, VerifyFailed
       OTAUpdateFailed("VerifyFailed");
       Screen.print(3, " CRC failed.");
@@ -210,9 +245,18 @@ void CheckNewFirmware()
     }
   }
 
+  // Report status
+  char endTimeStr[30];
+  t = time(NULL);
+  strftime(endTimeStr, 30, "%Y-%m-%dT%H:%M:%S.0000000Z", gmtime(&t));
+  ReportOTAStatus(currentFirmwareVersion, fwInfo.fwVersion, OTA_STATUS_APPLYING, "", startTimeStr, endTimeStr);
+
   // Applying
   if (OTAApplyNewFirmware(fwSize, checksum) != 0)
   {
+#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
+    LogInfo("Apply Firmware failed!", fwInfo.fwPackageURI);
+#endif
     // Report error status, ApplyFirmwareFailed
     OTAUpdateFailed("ApplyFirmwareFailed");
     Screen.print(3, " Apply failed.");
@@ -220,10 +264,9 @@ void CheckNewFirmware()
     return;
   }
   // Report status
-  char endTimeStr[30];
   t = time(NULL);
   strftime(endTimeStr, 30, "%Y-%m-%dT%H:%M:%S.0000000Z", gmtime(&t));
-  // ReportOTAStatus(currentFirmwareVersion, fwInfo->fwVersion, OTA_STATUS_APPLYING, "", startTimeStr, endTimeStr);
+  ReportOTAStatus(fwInfo.fwVersion, "", OTA_STATUS_CURRENT, "", startTimeStr, endTimeStr);
   
   // Counting down and reboot
   Screen.clean();
@@ -239,6 +282,6 @@ void CheckNewFirmware()
   }
   
   // Reboot system to apply the firmware.
-  SystemReboot();
   FreeFwInfo();
+  SystemReboot();
 }

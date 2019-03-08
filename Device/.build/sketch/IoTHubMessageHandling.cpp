@@ -137,6 +137,10 @@ bool SendDeviceInfo(DEVICE_SETTINGS *pDeviceSettings)
     char *devId = DEVICE_ID;
     // end check
 
+#ifdef DIAGNOSTIC_INFO_TWIN_PARSING
+    LogInfo("DIAGNOSTIC_INFO_REPORT_PROPERTIES  to the device");
+    delay(200);
+#endif
 
     snprintf(reportedProperties, 2048, twinProperties, devFW, devId, devLoc, 
         pDeviceSettings->measureInterval, pDeviceSettings->sendInterval, pDeviceSettings->warmingUpTime, pDeviceSettings->dSmsec,
@@ -151,7 +155,12 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
 {
     JSON_Value *root_value;
     root_value = json_parse_string(message);
-    
+
+ #ifdef DIAGNOSTIC_INFO_TWIN_PARSING
+    LogInfo("DIAGNOSTIC_INFO_TWIN_PARSING  message = %s", message);
+    delay(200);
+#endif
+   
     bool sendAck = false;
 
     if (json_value_get_type(root_value) != JSONObject) {

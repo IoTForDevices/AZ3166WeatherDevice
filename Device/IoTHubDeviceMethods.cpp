@@ -3,7 +3,7 @@
 #include "parson.h"
 #include "UpdateFirmwareOTA.h"
 
-#define DIAGNOSTIC_INFO_DM
+#define DIAGNOSTIC_INFO_DM_NOT
 
 
 void BuildResponseString(const char *payLoad, unsigned char **response, int *responseLength)
