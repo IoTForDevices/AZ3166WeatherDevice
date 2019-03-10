@@ -58,6 +58,7 @@ void BlinkSendConfirmation()
 
 
 
+
 static bool onReset = false;
 static bool onMeasureNow = false;
 static bool onFirmwareUpdate = false;
@@ -88,9 +89,9 @@ void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *pay
 
     char *temp = (char *)malloc(length + 1);
     if (temp == 
-# 53 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
+# 54 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
                __null
-# 53 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+# 54 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
                    )
     {
         return;
@@ -98,6 +99,12 @@ void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *pay
     memcpy(temp, payLoad, length);
     temp[length] = '\0';
     reportProperties = ParseTwinMessage(updateState, temp, &deviceSettings);
+
+
+
+
+
+
     free(temp);
 }
 
@@ -130,7 +137,7 @@ bool InitIoTHub()
  * NOTE: These functions must be available inside this source file, prior to the Init and Loop methods.
 
  */
-# 90 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+# 97 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 int DeviceMethodCallback(const char *methodName, const unsigned char *payload, int length, unsigned char **response, int *responseLength)
 {
     int result = 200;
@@ -164,8 +171,6 @@ void setup()
     DevKitMQTTClient_SetDeviceMethodCallback(&DeviceMethodCallback);
     DevKitMQTTClient_SetDeviceTwinCallback(&TwinCallback);
 
-    SendDeviceInfo(&deviceSettings);
-
     SetupSensors();
     send_interval_ms = measure_interval_ms = warming_up_interval_ms = deviceStartTime = SystemTickCounterRead();
 }
@@ -175,6 +180,11 @@ void loop()
     bool nextMeasurementDue = (int)(SystemTickCounterRead() - measure_interval_ms) >= deviceSettings.mImsec;
     bool nextMessageDue = (int)(SystemTickCounterRead() - send_interval_ms) >= deviceSettings.sImsec;
     bool suppressMessages = false;
+
+
+
+
+
 
     if (deviceSettings.warmingUpTime != 0) {
         suppressMessages = (int)(SystemTickCounterRead() - warming_up_interval_ms) < deviceSettings.wUTmsec;
@@ -250,10 +260,10 @@ void loop()
 
     if (onFirmwareUpdate) {
         do{{ if (0) { (void)printf("Ready to call CheckNewFirmware"); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 208 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
+# 218 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
        __null
-# 208 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-       ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 208, 0x01, "Ready to call CheckNewFirmware"); } }; }while((void)0,0);
+# 218 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+       ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 218, 0x01, "Ready to call CheckNewFirmware"); } }; }while((void)0,0);
         onFirmwareUpdate = false;
         CheckNewFirmware();
     }
