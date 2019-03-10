@@ -20,6 +20,7 @@
 #include "UpdateFirmwareOTA.h"
 
 #define DIAGNOSTIC_INFO_MAINMODULE_NOT
+#define DIAGNOSTIC_INFO_MAINMODULE_LOOP_NOT
 
 static bool onReset = false;
 static bool onMeasureNow = false;
@@ -46,7 +47,7 @@ void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *pay
     snprintf(payLoadString, length, "%s", payLoad);
 
 #ifdef DIAGNOSTIC_INFO_MAINMODULE
-    LogInfo("    TwinCallback - Payload: Length = %d, Content = %s", length, payLoadString);
+    LogInfo("    TwinCallback - Payload: Length = %d", length);
     delay(200);
 #endif
     char *temp = (char *)malloc(length + 1);
@@ -57,6 +58,12 @@ void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *pay
     memcpy(temp, payLoad, length);
     temp[length] = '\0';
     reportProperties = ParseTwinMessage(updateState, temp, &deviceSettings);
+
+#ifdef DIAGNOSTIC_INFO_MAINMODULE
+    LogInfo("    reportProperties after ParseTwinMessage = %d", reportProperties);
+    delay(200);
+#endif
+
     free(temp);
 }
 
@@ -120,8 +127,6 @@ void setup()
     DevKitMQTTClient_SetDeviceMethodCallback(&DeviceMethodCallback);
     DevKitMQTTClient_SetDeviceTwinCallback(&TwinCallback);
 
-    SendDeviceInfo(&deviceSettings);
-
     SetupSensors();
     send_interval_ms = measure_interval_ms = warming_up_interval_ms = deviceStartTime = SystemTickCounterRead();
 }
@@ -131,6 +136,11 @@ void loop()
     bool nextMeasurementDue = (int)(SystemTickCounterRead() - measure_interval_ms) >= deviceSettings.mImsec;
     bool nextMessageDue = (int)(SystemTickCounterRead() - send_interval_ms) >= deviceSettings.sImsec;
     bool suppressMessages = false;
+
+#ifdef DIAGNOSTIC_INFO_MAINMODULE_LOOP
+    LogInfo("loop nextMeasurementDue = %d, nextMessageDue = %d, suppressMessages = %d", nextMeasurementDue, nextMessageDue, suppressMessages);
+    delay(200);
+#endif
 
     if (deviceSettings.warmingUpTime != 0) {
         suppressMessages = (int)(SystemTickCounterRead() - warming_up_interval_ms) < deviceSettings.wUTmsec;

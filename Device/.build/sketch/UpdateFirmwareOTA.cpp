@@ -6,7 +6,7 @@
 #include "SystemTime.h"
 #include "Config.h"
 
-#define DIAGNOSTIC_INFO_UPDATEFIRMWARE
+#define DIAGNOSTIC_INFO_UPDATEFIRMWARE_NOT
 
 static char* currentFirmwareVersion = DEVICE_FIRMWARE_VERSION;
 

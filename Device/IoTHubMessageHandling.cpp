@@ -9,6 +9,7 @@
 
 #define DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING_NOT
 #define DIAGNOSTIC_INFO_TWIN_PARSING_NOT
+#define DIAGNOSTIC_INFO_TWIN_PARSING_RAW_DATA_NOT
 #define DIAGNOSTIC_INFO_SENSOR_DATA_NOT
 
 static float temperature = 0;
@@ -123,7 +124,7 @@ const char *twinProperties="{\"Firmware\":\"%s\",\"Model\":\"%s\",\"Location\":\
                              \"temperatureAlert\":%d,\"temperatureAccuracy\":%1.1f,\"humidityAccuracy\":%1.1f,\"pressureAccuracy\":%1.1f, \
                              \"maxDeltaBetweenMeasurements\":%d, \
                              \"temperatureCorrection\":%1.1f,\"humidityCorrection\":%1.1f,\"pressureCorrection\":%1.1f, \
-                             \"readHumidity\":%d, \"readPressure\":%d }";
+                             \"readHumidity\":%s, \"readPressure\":%s }";
 
 bool SendDeviceInfo(DEVICE_SETTINGS *pDeviceSettings)
 {
@@ -138,7 +139,7 @@ bool SendDeviceInfo(DEVICE_SETTINGS *pDeviceSettings)
     // end check
 
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING
-    LogInfo("DIAGNOSTIC_INFO_REPORT_PROPERTIES  to the device");
+    LogInfo("SendDeviceInfo to update Reported Properties.");
     delay(200);
 #endif
 
@@ -147,7 +148,7 @@ bool SendDeviceInfo(DEVICE_SETTINGS *pDeviceSettings)
         pDeviceSettings->temperatureAlert, pDeviceSettings->temperatureAccuracy, pDeviceSettings->humidityAccuracy, pDeviceSettings->pressureAccuracy,
         pDeviceSettings->maxDeltaBetweenMeasurements,
         pDeviceSettings->temperatureCorrection, pDeviceSettings->humidityCorrection, pDeviceSettings->pressureCorrection,
-        pDeviceSettings->enableHumidityReading ? 1 : 0, pDeviceSettings->enablePressureReading ? 1 : 0);
+        pDeviceSettings->enableHumidityReading ? "true" : "false", pDeviceSettings->enablePressureReading ? "true" : "false");
     return DevKitMQTTClient_ReportState(reportedProperties);
 }
 
@@ -156,7 +157,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
     JSON_Value *root_value;
     root_value = json_parse_string(message);
 
- #ifdef DIAGNOSTIC_INFO_TWIN_PARSING
+ #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_RAW_DATA
     LogInfo("DIAGNOSTIC_INFO_TWIN_PARSING  message = %s", message);
     delay(200);
 #endif
@@ -171,6 +172,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         return sendAck;
     }
 
+    sendAck = true;
     JSON_Object *root_object = json_value_get_object(root_value);
 
     if (json_object_has_value(root_object, "desired")) {
@@ -220,7 +222,6 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
             pDeviceSettings->enablePressureReading = json_object_dotget_boolean(root_object, "desired.enablePressureReading.value");
         }
     } else {
-        sendAck = true;
         if (json_object_dothas_value(root_object,"measureInterval.value")) {
             pDeviceSettings->measureInterval = (int)json_object_dotget_number(root_object, "measureInterval.value");
             pDeviceSettings->mImsec = pDeviceSettings->measureInterval * 1000;
