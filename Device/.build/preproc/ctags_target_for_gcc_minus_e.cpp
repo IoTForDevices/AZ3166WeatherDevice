@@ -70,7 +70,7 @@ static uint64_t deviceStartTime = 0;
 
 static bool reportProperties = false;
 
-static DEVICE_SETTINGS deviceSettings { 10, 300, 2, 0,
+static DEVICE_SETTINGS deviceSettings { 10, 300, 500, 2, 0,
                                         10000, 300000, 120000, 500,
                                         40,
                                         0.2, 0.2, 0.5,
