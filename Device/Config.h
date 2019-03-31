@@ -25,27 +25,28 @@
 #define DEFAULT_PRESSURE_ACCURACY    0.2
 #define DEFAULT_HUMIDITY_ACCURACY    0.5
 #define DEFAULT_MAX_DELTA_BETWEEN_MEASUREMENTS 5
+#define DEFAULT_MOTION_SENSITIVITY 10
 
 #define MESSAGE_MAX_LEN 256
 #define DEFAULT_TEMPERATURE_ALERT 40
 
 #define DEVICE_ID "AZ3166-Proto"
 #define DEVICE_LOCATION "On the road"
-#define DEVICE_FIRMWARE_VERSION "2.0.2"
+#define DEVICE_FIRMWARE_VERSION "2.0.3"
 
 // Telemetry
 #define JSON_TEMPERATURE       "temperature"
 #define JSON_HUMIDITY          "humidity"
 #define JSON_PRESSURE          "pressure"
 #define JSON_TEMPERATURE_ALERT "temperatureAlert"
+#define JSON_MOTION_DETECTED   "motionDetected"
 #define JSON_UPTIME            "upTime"
 
 #define JSON_MESSAGEID         "messageId"
 #define JSON_DEVICEID          "deviceId"
 #define JSON_DEVICELOC         "device_location"
 
-#define JSON_EVENT_WARNING     "buttonAPressed"
-#define JSON_EVENT_ERROR       "buttonBPressed"
+#define JSON_EVENT_MOTION      "motionDetected"
 
 #define SIMULATED_DATA false
 

@@ -17,6 +17,7 @@ double Round(float);
 float ReadHumidity();
 float ReadTemperature();
 float ReadPressure();
+bool MotionDetected(int);
 bool IsButtonClicked(unsigned char);
 
 #endif // READSENSORDATA_H
