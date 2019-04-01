@@ -73,8 +73,7 @@ static bool nextMeasurementDue;
 static bool nextMessageDue;
 static bool nextMotionEventDue;
 static bool suppressMessages;
-
-static bool reportProperties = false;
+static bool hasSendInitialReportedDeviceTwinValues = false;
 
 static DEVICE_SETTINGS reportedDeviceSettings { 10, 300, 500, 2, 0,
                                                 10000, 300000, 120000, 500,
@@ -83,17 +82,17 @@ static DEVICE_SETTINGS reportedDeviceSettings { 10, 300, 500, 2, 0,
                                                 5,
                                                 0.0, 0.0, 0.0, 10 };
 static DEVICE_PROPERTIES reportedDeviceProperties { 
-# 48 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
+# 47 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
                                                    __null
-# 48 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+# 47 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
                                                        , 
-# 48 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
+# 47 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
                                                          __null
-# 48 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+# 47 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
                                                              , 
-# 48 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
+# 47 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
                                                                __null 
-# 48 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+# 47 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
                                                                     };
 static DEVICE_SETTINGS desiredDeviceSettings;
 
@@ -103,35 +102,21 @@ void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *pay
     snprintf(payLoadString, length, "%s", payLoad);
 
 
-    do{{ if (0) { (void)printf("    TwinCallback - Payload: Length = %d", length); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 57 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-   __null
-# 57 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-   ) l(AZ_LOG_INFO, "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 57, 0x01, "    TwinCallback - Payload: Length = %d", length); } }; }while((void)0,0);
-    delay(200);
+
+
 
     char *temp = (char *)malloc(length + 1);
     if (temp == 
-# 61 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
+# 60 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
                __null
-# 61 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+# 60 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
                    )
     {
         return;
     }
     memcpy(temp, payLoad, length);
     temp[length] = '\0';
-    reportProperties = ParseTwinMessage(updateState, temp, &desiredDeviceSettings, &reportedDeviceSettings, &reportedDeviceProperties);
-
-
-    do{{ if (0) { (void)printf("    reportProperties after ParseTwinMessage = %d", reportProperties); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 70 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-   __null
-# 70 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-   ) l(AZ_LOG_INFO, "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 70, 0x01, "    reportProperties after ParseTwinMessage = %d", reportProperties); } }; }while((void)0,0);
-    delay(200);
-
-
+    ParseTwinMessage(updateState, temp, &desiredDeviceSettings, &reportedDeviceSettings, &reportedDeviceProperties);
     free(temp);
 }
 
@@ -164,17 +149,13 @@ bool InitIoTHub()
  * NOTE: These functions must be available inside this source file, prior to the Init and Loop methods.
 
  */
-# 104 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+# 97 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 int DeviceMethodCallback(const char *methodName, const unsigned char *payload, int length, unsigned char **response, int *responseLength)
 {
     int result = 200;
 
 
-    do{{ if (0) { (void)printf("DeviceMethodCallback!"); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 109 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-   __null
-# 109 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-   ) l(AZ_LOG_INFO, "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 109, 0x01, "DeviceMethodCallback!"); } }; }while((void)0,0);
+
 
 
     if (strcmp(methodName, "Reset") == 0) {
@@ -192,6 +173,39 @@ int DeviceMethodCallback(const char *methodName, const unsigned char *payload, i
 
 void setup()
 {
+    int nLength = strlen("AZ3166-Proto");
+    reportedDeviceProperties.pszDeviceModel = (char *)malloc(nLength + 1);
+    if (reportedDeviceProperties.pszDeviceModel == 
+# 122 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
+                                                  __null
+# 122 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+                                                      ) {
+        exit(1);
+    }
+    snprintf(reportedDeviceProperties.pszDeviceModel, nLength + 1, "%s", "AZ3166-Proto");
+
+    nLength = strlen("On the road");
+    reportedDeviceProperties.pszLocation = (char *)malloc(nLength + 1);
+    if (reportedDeviceProperties.pszLocation == 
+# 129 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
+                                               __null
+# 129 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+                                                   ) {
+        exit(1);
+    }
+    snprintf(reportedDeviceProperties.pszLocation, nLength + 1, "%s", "On the road");
+
+    nLength = strlen("2.0.2");
+    reportedDeviceProperties.pszCurrentFwVersion = (char *)malloc(nLength + 1);
+    if (reportedDeviceProperties.pszCurrentFwVersion == 
+# 136 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
+                                                       __null
+# 136 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+                                                           ) {
+        exit(1);
+    }
+    snprintf(reportedDeviceProperties.pszCurrentFwVersion, nLength + 1, "%s", "2.0.2");
+
     if (!InitWifi()) {
         exit(1);
     }
@@ -282,9 +296,9 @@ void loop()
                 onMeasureNow = false;
             }
 
-        // } else if (reportProperties) {
-        //     SendDeviceInfo(&reportedDeviceSettings, &reportedDeviceProperties);
-        //     reportProperties = false;
+        } else if (SendReportedDeviceTwinValues() && ! hasSendInitialReportedDeviceTwinValues) {
+            SendDeviceInfo(&reportedDeviceSettings, &reportedDeviceProperties);
+            hasSendInitialReportedDeviceTwinValues = true;
         } else {
             DevKitMQTTClient_Check();
         }
@@ -296,20 +310,16 @@ void loop()
 
         if (onFirmwareUpdate) {
 
-            do{{ if (0) { (void)printf("Ready to call CheckNewFirmware"); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 231 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-           __null
-# 231 "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-           ) l(AZ_LOG_INFO, "c:\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 231, 0x01, "Ready to call CheckNewFirmware"); } }; }while((void)0,0);
+
 
             onFirmwareUpdate = false;
             CheckNewFirmware();
         }
 
 
-        delay(2000);
 
 
+        delay(reportedDeviceSettings.dSmsec);
 
     } else {
         // No initial desired twin values received so assume that deviceSettings does not yet contain the right value

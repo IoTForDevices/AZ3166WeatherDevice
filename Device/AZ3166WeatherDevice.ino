@@ -17,7 +17,7 @@
 #include "ReadSensorData.h"
 #include "UpdateFirmwareOTA.h"
 
-#define DIAGNOSTIC_INFO_MAINMODULE
+#define DIAGNOSTIC_INFO_MAINMODULE_NOT
 #define DIAGNOSTIC_INFO_MAINMODULE_LOOP_NOT
 #define DIAGNOSTIC_INFO_MAINMODULE_MOTION_NOT
 
@@ -36,8 +36,7 @@ static bool nextMeasurementDue;
 static bool nextMessageDue;
 static bool nextMotionEventDue;
 static bool suppressMessages;
-
-static bool reportProperties = false;
+static bool hasSendInitialReportedDeviceTwinValues = false;
 
 static DEVICE_SETTINGS reportedDeviceSettings { DEFAULT_MEASURE_INTERVAL, DEFAULT_SEND_INTERVAL, DEFAULT_SLEEP_INTERVAL, DEFAULT_WARMING_UP_TIME, 0,
                                                 DEFAULT_MEASURE_INTERVAL_MSEC, DEFAULT_SEND_INTERVAL_MSEC, DEFAULT_WARMING_UP_TIME_MSEC, DEFAULT_WAKEUP_INTERVAL,
@@ -64,13 +63,7 @@ void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *pay
     }
     memcpy(temp, payLoad, length);
     temp[length] = '\0';
-    reportProperties = ParseTwinMessage(updateState, temp, &desiredDeviceSettings, &reportedDeviceSettings, &reportedDeviceProperties);
-
-#ifdef DIAGNOSTIC_INFO_MAINMODULE
-    LogInfo("    reportProperties after ParseTwinMessage = %d", reportProperties);
-    delay(200);
-#endif
-
+    ParseTwinMessage(updateState, temp, &desiredDeviceSettings, &reportedDeviceSettings, &reportedDeviceProperties);
     free(temp);
 }
 
@@ -124,6 +117,27 @@ int DeviceMethodCallback(const char *methodName, const unsigned char *payload, i
 
 void setup()
 {
+    int nLength = strlen(DEVICE_ID);
+    reportedDeviceProperties.pszDeviceModel = (char *)malloc(nLength + 1);
+    if (reportedDeviceProperties.pszDeviceModel == NULL) {
+        exit(1);
+    }
+    snprintf(reportedDeviceProperties.pszDeviceModel, nLength + 1, "%s", DEVICE_ID);
+
+    nLength = strlen(DEVICE_LOCATION);
+    reportedDeviceProperties.pszLocation = (char *)malloc(nLength + 1);
+    if (reportedDeviceProperties.pszLocation == NULL) {
+        exit(1);
+    }
+    snprintf(reportedDeviceProperties.pszLocation, nLength + 1, "%s", DEVICE_LOCATION);
+
+    nLength = strlen(DEVICE_FIRMWARE_VERSION);
+    reportedDeviceProperties.pszCurrentFwVersion = (char *)malloc(nLength + 1);
+    if (reportedDeviceProperties.pszCurrentFwVersion == NULL) {
+        exit(1);
+    }
+    snprintf(reportedDeviceProperties.pszCurrentFwVersion, nLength + 1, "%s", DEVICE_FIRMWARE_VERSION);
+
     if (!InitWifi()) {
         exit(1);
     }
@@ -214,9 +228,9 @@ void loop()
                 onMeasureNow = false;
             }
             
-        // } else if (reportProperties) {
-        //     SendDeviceInfo(&reportedDeviceSettings, &reportedDeviceProperties);
-        //     reportProperties = false;
+        } else if (SendReportedDeviceTwinValues() && ! hasSendInitialReportedDeviceTwinValues) {
+            SendDeviceInfo(&reportedDeviceSettings, &reportedDeviceProperties);
+            hasSendInitialReportedDeviceTwinValues = true;
         } else {
             DevKitMQTTClient_Check();
         }

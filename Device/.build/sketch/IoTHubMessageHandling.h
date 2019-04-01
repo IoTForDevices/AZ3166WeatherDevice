@@ -42,5 +42,6 @@ void CreateEventMsg(char* payLoad, IOTC_EVENT_TYPE eventType);
 bool SendDeviceInfo(DEVICE_SETTINGS *pDeviceSettings, DEVICE_PROPERTIES *pDeviceProperties);
 bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message, DEVICE_SETTINGS *pDesiredDeviceSettings, DEVICE_SETTINGS *pReportedDeviceSettings, DEVICE_PROPERTIES *pReportedDeviceProperties);
 bool InitialDeviceTwinDesiredReceived();
+bool SendReportedDeviceTwinValues();
 
 #endif // IOTHUBMESSAGEHANDLING_H

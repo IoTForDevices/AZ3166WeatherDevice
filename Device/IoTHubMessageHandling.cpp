@@ -9,9 +9,9 @@
 //#include "DebugZones.h"
 
 #define DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING_NOT
-#define DIAGNOSTIC_INFO_TWIN_PARSING
-#define DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-#define DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
+#define DIAGNOSTIC_INFO_TWIN_PARSING_NOT
+#define DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED_NOT
+#define DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED_NOT
 #define DIAGNOSTIC_INFO_TWIN_PARSING_RAW_DATA_NOT
 #define DIAGNOSTIC_INFO_SENSOR_DATA_NOT
 
@@ -19,6 +19,7 @@ static float temperature = 0;
 static float humidity = 0;
 static float pressure = 0;
 static bool  initialDeviceTwinReportReceived = false;
+static bool  hasReportedValues = false;
 
 bool CreateTelemetryMessage(char *payload, bool forceCreate, DEVICE_SETTINGS *pDeviceSettings)
 {
@@ -305,6 +306,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
 
         if (json_object_dothas_value(root_object, "reported.measureInterval")) {
             pReportedDeviceSettings->measureInterval = json_object_dotget_number(root_object, "reported.measureInterval");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.measureInterval = %d", pReportedDeviceSettings->measureInterval);
             delay(200);
@@ -312,6 +314,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.sendInterval")) {
             pReportedDeviceSettings->sendInterval = json_object_dotget_number(root_object, "reported.sendInterval");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.sendInterval = %d", pReportedDeviceSettings->sendInterval);
             delay(200);
@@ -319,6 +322,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.warmingUpTime")) {
             pReportedDeviceSettings->warmingUpTime = json_object_dotget_number(root_object, "reported.warmingUpTime");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.warmingUpTime = %d", pReportedDeviceSettings->warmingUpTime);
             delay(200);
@@ -327,6 +331,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.sleepTime")) {
             pReportedDeviceSettings->dSmsec = json_object_dotget_number(root_object, "reported.sleepTime");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.sleepTime = %d", pReportedDeviceSettings->dSmsec);
             delay(200);
@@ -334,6 +339,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.temperatureAlert")) {
             pReportedDeviceSettings->temperatureAlert = json_object_dotget_number(root_object, "reported.temperatureAlert");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.temperatureAlert = %d", pReportedDeviceSettings->temperatureAlert);
             delay(200);
@@ -341,6 +347,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.temperatureAccuracy")) {
             pReportedDeviceSettings->temperatureAccuracy = json_object_dotget_number(root_object, "reported.temperatureAccuracy");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.temperatureAccuracy = %.1f", pReportedDeviceSettings->temperatureAccuracy);
             delay(200);
@@ -348,6 +355,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.humidityAccuracy")) {
             pReportedDeviceSettings->humidityAccuracy = json_object_dotget_number(root_object, "reported.humidityAccuracy");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.humidityAccuracy = %.1f", pReportedDeviceSettings->humidityAccuracy);
             delay(200);
@@ -355,6 +363,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.pressureAccuracy")) {
             pReportedDeviceSettings->pressureAccuracy = json_object_dotget_number(root_object, "reported.pressureAccuracy");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.pressureAccuracy = %.1f", pReportedDeviceSettings->pressureAccuracy);
             delay(200);
@@ -362,6 +371,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.maxDeltaBetweenMeasurements")) {
             pReportedDeviceSettings->maxDeltaBetweenMeasurements = json_object_dotget_number(root_object, "reported.maxDeltaBetweenMeasurements");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.maxDeltaBetweenMeasurements = %d", pReportedDeviceSettings->maxDeltaBetweenMeasurements);
             delay(200);
@@ -369,6 +379,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.temperatureCorrection")) {
             pReportedDeviceSettings->temperatureCorrection = json_object_dotget_number(root_object, "reported.temperatureCorrection");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.temperatureCorrection = %.1f", pReportedDeviceSettings->temperatureCorrection);
             delay(200);
@@ -376,6 +387,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.humidityCorrection")) {
             pReportedDeviceSettings->humidityCorrection = json_object_dotget_number(root_object, "reported.humidityCorrection");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.humidityCorrection = %.1f", pReportedDeviceSettings->humidityCorrection);
             delay(200);
@@ -383,6 +395,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.pressureCorrection")) {
             pReportedDeviceSettings->pressureCorrection = json_object_dotget_number(root_object, "reported.pressureCorrection");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.pressureCorrection = %.1f", pReportedDeviceSettings->pressureCorrection);
             delay(200);
@@ -390,6 +403,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.readHumidity")) {
             pReportedDeviceSettings->enableHumidityReading = json_object_dotget_boolean(root_object, "reported.readHumidity");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.readHumidity = %d", pReportedDeviceSettings->enableHumidityReading);
             delay(200);
@@ -397,6 +411,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.readPressure")) {
             pReportedDeviceSettings->enablePressureReading = json_object_dotget_boolean(root_object, "reported.readPressure");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.readPressure = %d", pReportedDeviceSettings->enablePressureReading);
             delay(200);
@@ -404,6 +419,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.enableMotionDetection")) {
             pReportedDeviceSettings->enableMotionDetection = json_object_dotget_boolean(root_object, "reported.enableMotionDetection");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.enableMotionDetection = %d", pReportedDeviceSettings->enableMotionDetection);
             delay(200);
@@ -411,6 +427,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.motionSensitivity")) {
             pReportedDeviceSettings->motionSensitivity = json_object_dotget_number(root_object, "reported.motionSensitivity");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.motionSensitivity = %d", pReportedDeviceSettings->motionSensitivity);
             delay(200);
@@ -418,6 +435,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
         }
         if (json_object_dothas_value(root_object,"reported.motionDetectionInterval")) {
             pReportedDeviceSettings->motionDetectionInterval = json_object_dotget_number(root_object, "reported.motionDetectionInterval");
+            hasReportedValues = true;
 #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
             LogInfo("reported.motionDetectionInterval = %d", pReportedDeviceSettings->motionDetectionInterval);
             delay(200);
@@ -466,7 +484,37 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
             delay(200);
 #endif
         }
+
+        if (! hasReportedValues) {
+            // New Device: No reported properties yet in Device Twin. Let's set reported to desired and send them to the IoT Central Application.
+            initialDeviceTwinReportReceived = true;
+            pReportedDeviceSettings->measureInterval = pDesiredDeviceSettings->measureInterval;
+            pReportedDeviceSettings->sendInterval = pDesiredDeviceSettings->sendInterval;
+            pReportedDeviceSettings->sleepInterval = pDesiredDeviceSettings->sleepInterval;
+            pReportedDeviceSettings->warmingUpTime = pDesiredDeviceSettings->warmingUpTime;
+            pReportedDeviceSettings->motionDetectionInterval = pDesiredDeviceSettings->motionDetectionInterval;
+            pReportedDeviceSettings->upTime = pDesiredDeviceSettings->upTime;
+            pReportedDeviceSettings->mImsec = pDesiredDeviceSettings->mImsec;
+            pReportedDeviceSettings->sImsec = pDesiredDeviceSettings->sImsec;
+            pReportedDeviceSettings->wUTmsec = pDesiredDeviceSettings->wUTmsec;
+            pReportedDeviceSettings->dSmsec = pDesiredDeviceSettings->dSmsec;
+            pReportedDeviceSettings->motionInMsec = pDesiredDeviceSettings->motionInMsec;
+            pReportedDeviceSettings->temperatureAlert = pDesiredDeviceSettings->temperatureAlert;
+            pReportedDeviceSettings->temperatureAccuracy = pDesiredDeviceSettings->temperatureAccuracy;
+            pReportedDeviceSettings->pressureAccuracy = pDesiredDeviceSettings->pressureAccuracy;
+            pReportedDeviceSettings->humidityAccuracy = pDesiredDeviceSettings->humidityAccuracy;
+            pReportedDeviceSettings->maxDeltaBetweenMeasurements = pDesiredDeviceSettings->maxDeltaBetweenMeasurements;
+            pReportedDeviceSettings->temperatureCorrection = pDesiredDeviceSettings->temperatureCorrection;
+            pReportedDeviceSettings->pressureCorrection = pDesiredDeviceSettings->pressureCorrection;
+            pReportedDeviceSettings->humidityCorrection = pDesiredDeviceSettings->humidityCorrection;
+            pReportedDeviceSettings->motionSensitivity = pDesiredDeviceSettings->motionSensitivity;
+            pReportedDeviceSettings->enableHumidityReading = pDesiredDeviceSettings->enableHumidityReading;
+            pReportedDeviceSettings->enablePressureReading = pDesiredDeviceSettings->enablePressureReading;
+            pReportedDeviceSettings->enableMotionDetection = pDesiredDeviceSettings->enableMotionDetection;
+        }
+
         initialDeviceTwinReportReceived = true;
+
     } else {        // We are informed about a change in one of the desired properties
         if (json_object_dothas_value(root_object,"measureInterval.value")) {
             pDesiredDeviceSettings->measureInterval = (int)json_object_dotget_number(root_object, "measureInterval.value");
@@ -612,5 +660,20 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
 
 bool InitialDeviceTwinDesiredReceived()
 {
-    return initialDeviceTwinReportReceived;
+    bool initialReceived = initialDeviceTwinReportReceived;
+#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
+    LogInfo("InitialDeviceTwinDesiredReceived = %d", initialReceived);
+    delay(200);
+#endif
+    return initialReceived;
+}
+
+bool SendReportedDeviceTwinValues()
+{
+    bool sendReportedValues = ! hasReportedValues;
+#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
+    LogInfo("SendReportedDeviceTwinValues = %d", sendReportedValues);
+    delay(200);
+#endif
+    return sendReportedValues;
 }
