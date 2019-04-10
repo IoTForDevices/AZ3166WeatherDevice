@@ -6,51 +6,323 @@
 
 #include "ReadSensorData.h"
 #include "AZ3166Leds.h"
-//#include "DebugZones.h"
+#include "IoTHubMessageHandling.h"
+#include "DebugZones.h"
 
-#define DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING_NOT
-#define DIAGNOSTIC_INFO_TWIN_PARSING_NOT
-#define DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED_NOT
-#define DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED_NOT
-#define DIAGNOSTIC_INFO_TWIN_PARSING_RAW_DATA_NOT
-#define DIAGNOSTIC_INFO_SENSOR_DATA_NOT
+static bool initialDeviceTwinReportReceived = false;
+static bool hasReportedValues = false;
+static bool isInitialized = false;
+static bool updateReportedValues = false;
 
-static float temperature = 0;
-static float humidity = 0;
-static float pressure = 0;
-static bool  initialDeviceTwinReportReceived = false;
-static bool  hasReportedValues = false;
+DEVICE_ENTRIES deviceTwinEntries[] = {
+    { VALUE_INT,    "measureInterval" },
+    { VALUE_INT,    "sendInterval" },
+    { VALUE_INT,    "warmingUpTime" },
+    { VALUE_INT,    "motionDetectionInterval" },
+    { VALUE_INT,    "sleepTime" },
+    { VALUE_INT,    "temperatureAlert" },
+    { VALUE_FLOAT,  "temperatureAccuracy" },
+    { VALUE_FLOAT,  "humidityAccuracy" },
+    { VALUE_FLOAT,  "pressureAccuracy" },
+    { VALUE_FLOAT,  "maxDeltaBetweenMeasurements" },
+    { VALUE_FLOAT,  "temperatureCorrection" },
+    { VALUE_FLOAT,  "humidityCorrection" },
+    { VALUE_FLOAT,  "pressureCorrection" },
+    { VALUE_BOOL,   "enableHumidityReading" },
+    { VALUE_BOOL,   "enablePressureReading" },
+    { VALUE_BOOL,   "enableMotionDetection" },
+    { VALUE_INT,    "motionSensitivity" },
+    { VALUE_STRING, "firmware.currentFwVersion" },
+    { VALUE_STRING, "Model" },
+    { VALUE_STRING, "Location" },
+    { VALUE_INT,    "actualDebugMask"}
+};
 
-bool CreateTelemetryMessage(char *payload, bool forceCreate, DEVICE_SETTINGS *pDeviceSettings)
+DEVICE_ENTRIES telemetryEntries[] = {
+    { VALUE_FLOAT, "temperature" },
+    { VALUE_FLOAT, "humidity" },
+    { VALUE_FLOAT, "pressure" },
+    { VALUE_INT,   "upTime" }
+};
+
+const int iExpectedValues = sizeof(deviceTwinEntries)/sizeof(deviceTwinEntries[0]);
+const int iTelemetryValues = sizeof(telemetryEntries)/sizeof(telemetryEntries[0]);
+DEVICE_DATA desiredTwinValues[iExpectedValues];         // These are the values that are requested from the IOTC application
+DEVICE_DATA reportedTwinValues[iExpectedValues];        // These are the values used by the device application
+DEVICE_PROPERTIES reportedTwinProperties[3];            // These are the reported properties from the IOTC application
+DEVICE_DATA telemetryValues[iTelemetryValues];
+
+void InitializeReportedTwinValues()
 {
-    bool bReadHumidity = pDeviceSettings->enableHumidityReading;
-    bool bReadPressure = pDeviceSettings->enablePressureReading;
-    float t = ReadTemperature() + pDeviceSettings->temperatureCorrection;
-    float h = ReadHumidity() + pDeviceSettings->humidityCorrection;
-    float p = ReadPressure() + pDeviceSettings->pressureCorrection;
-    float deltaT = abs(temperature - t);
-    float deltaH = abs(humidity - h);
-    float deltaP = abs(pressure - p);
-    bool temperatureAlert = false;
+    reportedTwinValues[IDX_MEASUREINTERVAL].iValue = DEFAULT_MEASURE_INTERVAL; 
+    reportedTwinValues[IDX_SENDINTERVAL].iValue = DEFAULT_SEND_INTERVAL; 
+    reportedTwinValues[IDX_WARMINGUPTIME].iValue = DEFAULT_WARMING_UP_TIME; 
+    reportedTwinValues[IDX_MOTIONDETECTIONINTERVAL].iValue = DEFAULT_MOTION_DETECTION_INTERVAL; 
+    reportedTwinValues[IDX_SLEEPTIME].iValue = DEFAULT_SLEEP_INTERVAL; 
+    reportedTwinValues[IDX_TEMPERATUREALERT].iValue =  DEFAULT_TEMPERATURE_ALERT;
+    reportedTwinValues[IDX_TEMPERATUREACCURACY].fValue = DEFAULT_TEMPERATURE_ACCURACY; 
+    reportedTwinValues[IDX_HUMIDITYACCURACY].fValue = DEFAULT_HUMIDITY_ACCURACY; 
+    reportedTwinValues[IDX_PRESSUREACCURACY].fValue = DEFAULT_PRESSURE_ACCURACY;
+    reportedTwinValues[IDX_MAXDELTABETWEENMEASUREMENTS].iValue = DEFAULT_MAX_DELTA_BETWEEN_MEASUREMENTS;
+    reportedTwinValues[IDX_TEMPERATURECORRECTION].fValue = DEFAULT_TEMPERATURE_CORRECTION;
+    reportedTwinValues[IDX_HUMIDITYCORRECTION].fValue = DEFAULT_HUMIDITY_CORRECTION;
+    reportedTwinValues[IDX_PRESSURECORRECTION].fValue = DEFAULT_PRESSURE_CORRECTION;
+    reportedTwinValues[IDX_READHUMIDITY].bValue = DEFAULT_READ_HUMIDITY;
+    reportedTwinValues[IDX_READPRESSURE].bValue = DEFAULT_READ_PRESSURE;
+    reportedTwinValues[IDX_ENABLEMOTIONDETECTION].bValue = DEFAULT_DETECT_MOTION;
+    reportedTwinValues[IDX_MOTIONSENSITIVITY].iValue = DEFAULT_MOTION_SENSITIVITY;
+    reportedTwinValues[IDX_DEBUGMASK].iValue = DEFAULT_DEBUGMASK;
+}
 
-#ifdef DIAGNOSTIC_INFO_SENSOR_DATA
-    LogInfo("DIAGNOSTIC_INFO_SENSOR_DATA  deltaT = %.2f, deltaH = %.2f, deltaP = %.2f", deltaT, deltaH, deltaP);
+bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message)
+{
+    bool sendAck = false;
+    updateReportedValues = false;
+    JSON_Value *root_value = json_parse_string(message);
+
+#ifdef LOGGING
+    int msgLength = strlen(message);
+    for (int i = 0; i < msgLength; i += 100) {
+        char szBuffer[101];
+        snprintf(szBuffer, 100, message+i);
+        DEBUGMSG(ZONE_RAWDATA, "%s", szBuffer);
+    }
 #endif
 
+    if (json_value_get_type(root_value) != JSONObject) {
+        if (root_value != NULL) {
+            json_value_free(root_value);
+        }
+        DEBUGMSG(ZONE_ERROR, "parse %s failed", message);
+        return sendAck;
+    }
+
+    sendAck = true;
+    JSON_Object *root_object = json_value_get_object(root_value);
+
+    if (json_object_has_value(root_object, "desired")) {
+        updateReportedValues = true;
+        for (int iValues = 0; iValues < iExpectedValues; iValues++) {
+            char szDesiredValue[80];    // Potential Risk of overflowing the array
+            sprintf(szDesiredValue, "desired.%s.value", deviceTwinEntries[iValues].pszName);
+            if (json_object_dothas_value(root_object, szDesiredValue)) {
+                switch (deviceTwinEntries[iValues].twinDataType) {
+                    case VALUE_INT:
+                        desiredTwinValues[iValues].iValue = json_object_dotget_number(root_object, szDesiredValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s = %d", szDesiredValue, desiredTwinValues[iValues].iValue);
+                        break;
+                    case VALUE_FLOAT:
+                        desiredTwinValues[iValues].fValue = json_object_dotget_number(root_object, szDesiredValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s = %.1f", szDesiredValue, desiredTwinValues[iValues].fValue);
+                        break;
+                    case VALUE_BOOL:
+                        desiredTwinValues[iValues].bValue = json_object_dotget_boolean(root_object, szDesiredValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s = %d", szDesiredValue, desiredTwinValues[iValues].bValue);
+                        break;
+                    case VALUE_STRING: {
+                        char *pszValue = (char *)json_object_dotget_string(root_object, szDesiredValue);
+                        int iValueLength = strlen(pszValue);
+                        if (desiredTwinValues[iValues].pszValue != NULL) {
+                            free(desiredTwinValues[iValues].pszValue);
+                            desiredTwinValues[iValues].pszValue = NULL;
+                        }
+                        desiredTwinValues[iValues].pszValue = (char *)malloc(iValueLength + 1);
+                        if (desiredTwinValues[iValues].pszValue == NULL) {
+                            DEBUGMSG(ZONE_ERROR, "Memory allocation failure for reportedTwinValues[%d]", iValues);
+                            sendAck = false;
+                            return sendAck;
+                        }
+                        snprintf(desiredTwinValues[iValues].pszValue, iValueLength + 1, "%s", pszValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s = desiredTwinValues[%d]: %s", szDesiredValue, iValues, desiredTwinValues[iValues].pszValue);
+                        break;
+                    }
+                    default:
+                        DEBUGMSG(ZONE_ERROR, "Undefined Twin Datatype for desiredTwinValues[%d] = %d", iValues, (int)deviceTwinEntries[iValues].twinDataType);
+                        sendAck = false;
+                        return sendAck;
+                }
+            }
+            char szReportedValue[80];    // Potential Risk of overflowing the array
+            sprintf(szReportedValue, "reported.%s", deviceTwinEntries[iValues].pszName);
+            if (json_object_dothas_value(root_object, szReportedValue)) {
+                switch (deviceTwinEntries[iValues].twinDataType) {
+                    case VALUE_INT:
+                        reportedTwinValues[iValues].iValue = json_object_dotget_number(root_object, szReportedValue);
+                        if (reportedTwinValues[iValues].iValue != desiredTwinValues[iValues].iValue) {
+                            reportedTwinValues[iValues].iValue = desiredTwinValues[iValues].iValue;
+                        }
+                        DEBUGMSG(ZONE_TWINPARSING, "%s = reportedTwinValues[%d]: %d", szReportedValue, iValues, reportedTwinValues[iValues].iValue);
+                        break;
+                    case VALUE_FLOAT:
+                        reportedTwinValues[iValues].fValue = json_object_dotget_number(root_object, szReportedValue);
+                        if (reportedTwinValues[iValues].fValue != desiredTwinValues[iValues].fValue) {
+                            updateReportedValues = true;
+                            reportedTwinValues[iValues].fValue = desiredTwinValues[iValues].fValue;
+                        }
+                        DEBUGMSG(ZONE_TWINPARSING, "%s = reportedTwinValues[%d]: %.1f", szReportedValue, iValues, reportedTwinValues[iValues].fValue);
+                        break;
+                    case VALUE_BOOL:
+                        reportedTwinValues[iValues].bValue = json_object_dotget_boolean(root_object, szReportedValue);
+                        if (reportedTwinValues[iValues].bValue != desiredTwinValues[iValues].bValue) {
+                            updateReportedValues = true;
+                            reportedTwinValues[iValues].bValue = desiredTwinValues[iValues].bValue;
+                        }
+                        DEBUGMSG(ZONE_TWINPARSING, "%s = reportedTwinValues[%d]: %d", szReportedValue, iValues, reportedTwinValues[iValues].bValue);
+                        break;
+                    case VALUE_STRING: {
+                        char *pszValue = (char *)json_object_dotget_string(root_object, szReportedValue);
+                        int iValueLength = strlen(pszValue);
+                        if (reportedTwinValues[iValues].pszValue != NULL) {
+                            free(reportedTwinValues[iValues].pszValue);
+                            reportedTwinValues[iValues].pszValue = NULL;
+                        }
+                        if (desiredTwinValues[iValues].pszValue != NULL) {
+                            if (strcmp(pszValue, desiredTwinValues[iValues].pszValue) != 0)
+                            {
+                                pszValue = desiredTwinValues[iValues].pszValue;
+                                iValueLength = strlen(pszValue);
+                                updateReportedValues = true;
+                            }
+                        }
+                        reportedTwinValues[iValues].pszValue = (char *)malloc(iValueLength + 1);
+                        if (reportedTwinValues[iValues].pszValue == NULL) {
+                            DEBUGMSG(ZONE_ERROR, "Memory allocation failure for reportedTwinValues[%d]", iValues);
+                            sendAck = false;
+                            return sendAck;
+                        }
+                        snprintf(reportedTwinValues[iValues].pszValue, iValueLength + 1, "%s", pszValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s = reportedTwinValues[%d]: %s", szReportedValue, iValues, reportedTwinValues[iValues].pszValue);
+                        break;
+                    }
+                    default:
+                        DEBUGMSG(ZONE_ERROR, "Undefined Twin Datatype for reportedTwinValues[%d] = %d", iValues, (int)deviceTwinEntries[iValues].twinDataType);
+                        sendAck = false;
+                        return sendAck;
+                }
+            }
+        }
+
+        if (! hasReportedValues) {
+            // New Device: No reported properties yet in Device Twin. Let's set reported to desired and send them to the IoT Central Application.
+            for (int iValues = 0; iValues < iExpectedValues; iValues++) {
+                switch (deviceTwinEntries[iValues].twinDataType) {
+                    case VALUE_INT:
+                        reportedTwinValues[iValues].iValue = desiredTwinValues[iValues].iValue;
+                        break;
+                    case VALUE_FLOAT:
+                        reportedTwinValues[iValues].fValue = desiredTwinValues[iValues].fValue;
+                        break;
+                    case VALUE_BOOL:
+                        reportedTwinValues[iValues].bValue = desiredTwinValues[iValues].bValue;
+                        break;
+                    case VALUE_STRING:
+                        break;
+                    default:
+                        sendAck = false;
+                        return sendAck;
+                }
+            }
+        }
+        initialDeviceTwinReportReceived = true;
+    } else {
+        for (int iNewDesiredValue = 0; iNewDesiredValue < iExpectedValues; iNewDesiredValue++) {
+            char szNewDesiredValue[80];    // Potential Risk of overflowing the array
+            updateReportedValues = true;
+            sprintf(szNewDesiredValue, "%s.value", deviceTwinEntries[iNewDesiredValue].pszName);
+            if (json_object_dothas_value(root_object, szNewDesiredValue)) {
+                switch (deviceTwinEntries[iNewDesiredValue].twinDataType) {
+                    case VALUE_INT:
+                        desiredTwinValues[iNewDesiredValue].iValue = json_object_dotget_number(root_object, szNewDesiredValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s = %d", szNewDesiredValue, desiredTwinValues[iNewDesiredValue].iValue);
+                        reportedTwinValues[iNewDesiredValue].iValue = desiredTwinValues[iNewDesiredValue].iValue;
+                        if (iNewDesiredValue == IDX_DEBUGMASK) {
+                            dpCurSettings.ulZoneMask = desiredTwinValues[iNewDesiredValue].iValue;
+                        }
+                        break;
+                    case VALUE_FLOAT:
+                        desiredTwinValues[iNewDesiredValue].fValue = json_object_dotget_number(root_object, szNewDesiredValue);
+                        reportedTwinValues[iNewDesiredValue].iValue = desiredTwinValues[iNewDesiredValue].iValue;
+                        DEBUGMSG(ZONE_TWINPARSING, "%s = %.1f", szNewDesiredValue, desiredTwinValues[iNewDesiredValue].fValue);
+                        break;
+                    case VALUE_BOOL:
+                        desiredTwinValues[iNewDesiredValue].bValue = json_object_dotget_boolean(root_object, szNewDesiredValue);
+                        reportedTwinValues[iNewDesiredValue].iValue = desiredTwinValues[iNewDesiredValue].iValue;
+                        DEBUGMSG(ZONE_TWINPARSING, "%s = %d", szNewDesiredValue, desiredTwinValues[iNewDesiredValue].bValue);
+                        break;
+                    case VALUE_STRING: {
+                        char *pszValue = (char *)json_object_dotget_string(root_object, szNewDesiredValue);
+                        int iValueLength = strlen(pszValue);
+
+                        if (desiredTwinValues[iNewDesiredValue].pszValue != NULL) {
+                            free(desiredTwinValues[iNewDesiredValue].pszValue);
+                            desiredTwinValues[iNewDesiredValue].pszValue = NULL;
+                        }
+                        desiredTwinValues[iNewDesiredValue].pszValue = (char *)malloc(iValueLength + 1);
+                        if (desiredTwinValues[iNewDesiredValue].pszValue == NULL) {
+                            DEBUGMSG(ZONE_ERROR, "Memory allocation failure for reportedTwinValues[%d]", iNewDesiredValue);
+                            sendAck = false;
+                            return sendAck;
+                        }
+                        snprintf(desiredTwinValues[iNewDesiredValue].pszValue, iValueLength + 1, "%s", pszValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s = desiredTwinValues[%d]: %s", szNewDesiredValue, iNewDesiredValue, desiredTwinValues[iNewDesiredValue].pszValue);
+
+                        if (reportedTwinValues[iNewDesiredValue].pszValue != NULL) {
+                            free(reportedTwinValues[iNewDesiredValue].pszValue);
+                            reportedTwinValues[iNewDesiredValue].pszValue = NULL;
+                        }
+                        reportedTwinValues[iNewDesiredValue].pszValue = (char *)malloc(iValueLength + 1);
+                        if (reportedTwinValues[iNewDesiredValue].pszValue == NULL) {
+                            DEBUGMSG(ZONE_ERROR, "Memory allocation failure for reportedTwinValues[%d]", iNewDesiredValue);
+                            sendAck = false;
+                            return sendAck;
+                        }
+                        snprintf(reportedTwinValues[iNewDesiredValue].pszValue, iValueLength + 1, "%s", pszValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s = reportedTwinValues[%d]: %s", szNewDesiredValue, iNewDesiredValue, reportedTwinValues[iNewDesiredValue].pszValue);
+                        break;
+                    }
+                    default:
+                        DEBUGMSG(ZONE_ERROR, "Undefined Twin Datatype for desiredTwinValues[%d] = %d", iNewDesiredValue, (int)deviceTwinEntries[iNewDesiredValue].twinDataType);
+                        sendAck = false;
+                        return sendAck;
+                }
+            }
+        }
+    }
+    json_value_free(root_value);
+    isInitialized = true;
+    return sendAck;
+}
+
+bool CreateTelemetryMessage(char *payload, bool forceCreate)
+{
+    bool bReadHumidity = reportedTwinValues[IDX_READHUMIDITY].bValue;
+    bool bReadPressure = reportedTwinValues[IDX_READPRESSURE].bValue;
+    float t = ReadTemperature() + reportedTwinValues[IDX_TEMPERATURECORRECTION].fValue;
+    float h = ReadHumidity() + reportedTwinValues[IDX_HUMIDITYCORRECTION].fValue;
+    float p = ReadPressure() + reportedTwinValues[IDX_PRESSURECORRECTION].fValue;
+    float deltaT = abs(telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue - t);
+    float deltaH = abs(telemetryValues[IDX_HUMIDITY_TELEMETRY].fValue - h);
+    float deltaP = abs(telemetryValues[IDX_PRESSURE_TELEMETRY].fValue - p);
+    bool temperatureAlert = false;
+
+    DEBUGMSG(ZONE_INIT, "CreateTelemetryMessage(%s, %d", "*payLoad", forceCreate);
+    DEBUGMSG(ZONE_SENSORDATA, "DIAGNOSTIC_INFO_SENSOR_DATA  deltaT = %.2f, deltaH = %.2f, deltaP = %.2f", deltaT, deltaH, deltaP);
+    DEBUGMSG(ZONE_SENSORDATA, "reportedTwinValues[IDX_TEMPERATUREACCURACY].fValue = %.1f, reportedTwinValues[IDX_MAXDELTABETWEENMEASUREMENTS].fValue = %.1f", reportedTwinValues[IDX_TEMPERATUREACCURACY].fValue, reportedTwinValues[IDX_MAXDELTABETWEENMEASUREMENTS].fValue);
+    DEBUGMSG(ZONE_SENSORDATA, "reportedTwinValues[IDX_HUMIDITYACCURACY].fValue = %.1f", reportedTwinValues[IDX_HUMIDITYACCURACY].fValue);
+    DEBUGMSG(ZONE_SENSORDATA, "reportedTwinValues[IDX_PRESSUREACCURACY].fValue = %.1f", reportedTwinValues[IDX_PRESSUREACCURACY].fValue);
+
     // Correct for sensor jitter
-    bool temperatureChanged = (deltaT > pDeviceSettings->temperatureAccuracy) && (deltaT < pDeviceSettings->maxDeltaBetweenMeasurements);
-    bool humidityChanged    = (deltaH > pDeviceSettings->humidityAccuracy)    && (deltaH < pDeviceSettings->maxDeltaBetweenMeasurements);
-    bool pressureChanged    = (deltaP > pDeviceSettings->pressureAccuracy)    && (deltaP < pDeviceSettings->maxDeltaBetweenMeasurements);
+    bool temperatureChanged = (deltaT > reportedTwinValues[IDX_TEMPERATUREACCURACY].fValue) && (deltaT < reportedTwinValues[IDX_MAXDELTABETWEENMEASUREMENTS].fValue);
+    bool humidityChanged    = (deltaH > reportedTwinValues[IDX_HUMIDITYACCURACY].fValue)    && (deltaH < reportedTwinValues[IDX_MAXDELTABETWEENMEASUREMENTS].fValue);
+    bool pressureChanged    = (deltaP > reportedTwinValues[IDX_PRESSUREACCURACY].fValue)    && (deltaP < reportedTwinValues[IDX_MAXDELTABETWEENMEASUREMENTS].fValue);
 
     if (forceCreate) {
         temperatureChanged = humidityChanged = pressureChanged = true;
     }
 
-#ifdef DIAGNOSTIC_INFO_SENSOR_DATA
-    LogInfo("DIAGNOSTIC_INFO_SENSOR_DATA  temperatureChanged = %d, humidityChanged = %d, pressureChanged = %d", (int)temperatureChanged, (int)humidityChanged, (int)pressureChanged);
-    LogInfo("DIAGNOSTIC_INFO_SENSOR_DATA  temperature = %.1f, humidity = %.1f, pressure = %.1f", temperature, humidity, pressure);
-    LogInfo("DIAGNOSTIC_INFO_SENSOR_DATA  t = %.1f, h = %.1f, p = %.1f", t, h, p);
-#endif
+    DEBUGMSG(ZONE_SENSORDATA, "DIAGNOSTIC_INFO_SENSOR_DATA  temperatureChanged = %d, humidityChanged = %d, pressureChanged = %d", (int)temperatureChanged, (int)humidityChanged, (int)pressureChanged);
+    DEBUGMSG(ZONE_SENSORDATA, "DIAGNOSTIC_INFO_SENSOR_DATA  temperature = %.1f, humidity = %.1f, pressure = %.1f", telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue, telemetryValues[IDX_HUMIDITY_TELEMETRY].fValue, telemetryValues[IDX_PRESSURE_TELEMETRY].fValue);
+    DEBUGMSG(ZONE_SENSORDATA, "DIAGNOSTIC_INFO_SENSOR_DATA  t = %.1f, h = %.1f, p = %.1f", t, h, p);
 
     if (temperatureChanged || humidityChanged || pressureChanged) {
         JSON_Value *root_value = json_value_init_object();
@@ -60,29 +332,33 @@ bool CreateTelemetryMessage(char *payload, bool forceCreate, DEVICE_SETTINGS *pD
         json_object_set_string(root_object, JSON_DEVICEID, DEVICE_ID);
 
         if (temperatureChanged) {
-            temperature = t;
-            json_object_set_number(root_object, JSON_TEMPERATURE, Round(temperature));
+            telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue = t;
+            json_object_set_number(root_object, telemetryEntries[IDX_TEMPERATURE_TELEMETRY].pszName, Round(telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue));
         }
 
-        if(temperature > DEFAULT_TEMPERATURE_ALERT) {
+        if(telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue > DEFAULT_TEMPERATURE_ALERT) {
             temperatureAlert = true;
         }
 
         if (humidityChanged) {
-            humidity = h;
+            telemetryValues[IDX_HUMIDITY_TELEMETRY].fValue = h;
             if (bReadHumidity) {
-                json_object_set_number(root_object, JSON_HUMIDITY, Round(humidity));
+                json_object_set_number(root_object, telemetryEntries[IDX_HUMIDITY_TELEMETRY].pszName, Round(telemetryValues[IDX_HUMIDITY_TELEMETRY].fValue));
             }
         }
 
         if (pressureChanged) {
-            pressure = p;
+            telemetryValues[IDX_PRESSURE_TELEMETRY].fValue = p;
             if (bReadPressure) {
-                json_object_set_number(root_object, JSON_PRESSURE, Round(pressure));
+                json_object_set_number(root_object, telemetryEntries[IDX_PRESSURE_TELEMETRY].pszName, Round(telemetryValues[IDX_PRESSURE_TELEMETRY].fValue));
             }
         }
 
-        ShowTelemetryData(temperature, humidity, pressure, pDeviceSettings);
+        ShowTelemetryData(telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue,
+                          telemetryValues[IDX_HUMIDITY_TELEMETRY].fValue,
+                          telemetryValues[IDX_PRESSURE_TELEMETRY].fValue,
+                          reportedTwinValues[IDX_READHUMIDITY].bValue,
+                          reportedTwinValues[IDX_READPRESSURE].bValue);
 
         serialized_string = json_serialize_to_string_pretty(root_value);
 
@@ -96,13 +372,10 @@ bool CreateTelemetryMessage(char *payload, bool forceCreate, DEVICE_SETTINGS *pD
     return temperatureAlert;
 }
 
+
 void CreateEventMsg(char *payload, IOTC_EVENT_TYPE eventType)
 {
-#ifdef DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING
-    LogInfo("DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING  CreateEventMessage Invoked");
-    delay(200);
-#endif
-
+    DEBUGMSG(ZONE_INIT, "%s", "DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING  CreateEventMessage Invoked");
     JSON_Value *root_value = json_value_init_object();
     JSON_Object *root_object = json_value_get_object(root_value);
     char *serialized_string = NULL;
@@ -120,560 +393,91 @@ void CreateEventMsg(char *payload, IOTC_EVENT_TYPE eventType)
     json_value_free(root_value);
 }
 
-const char *twinProperties="{\"Firmware\":\"%s\",\"Model\":\"%s\",\"Location\":\"%s\", \ 
-                             \"measureInterval\":%d,\"sendInterval\":%d,\"warmingUpTime\":%d,\"sleepTime\":%d,\"motionDetectionInterval\":%d, \
-                             \"temperatureAlert\":%d,\"temperatureAccuracy\":%1.1f,\"humidityAccuracy\":%1.1f,\"pressureAccuracy\":%1.1f, \
-                             \"maxDeltaBetweenMeasurements\":%d, \
-                             \"temperatureCorrection\":%1.1f,\"humidityCorrection\":%1.1f,\"pressureCorrection\":%1.1f, \"motionSensitivity\":%d, \
-                             \"readHumidity\":%s, \"readPressure\":%s, \"enableMotionDetection\":%s }";
-
-bool SendDeviceInfo(DEVICE_SETTINGS *pDeviceSettings, DEVICE_PROPERTIES *pDeviceProperties)
+bool SendDeviceInfo()
 {
-    char reportedProperties[2048];
+    char reportedProperties[1024];
+    updateReportedValues = false;
 
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING
-    LogInfo("SendDeviceInfo to update Reported Properties.");
-    delay(200);
-#endif
+    DEBUGMSG(ZONE_INIT, "%s method called", "SendDeviceInfo");
+    reportedProperties[0] = '{';
+    reportedProperties[1] = '\0';
 
-    snprintf(reportedProperties, 2048, twinProperties, pDeviceProperties->pszCurrentFwVersion, pDeviceProperties->pszDeviceModel, pDeviceProperties->pszLocation, 
-        pDeviceSettings->measureInterval, pDeviceSettings->sendInterval, pDeviceSettings->warmingUpTime, pDeviceSettings->dSmsec, pDeviceSettings->motionDetectionInterval,
-        pDeviceSettings->temperatureAlert, pDeviceSettings->temperatureAccuracy, pDeviceSettings->humidityAccuracy, pDeviceSettings->pressureAccuracy,
-        pDeviceSettings->maxDeltaBetweenMeasurements,
-        pDeviceSettings->temperatureCorrection, pDeviceSettings->humidityCorrection, pDeviceSettings->pressureCorrection, pDeviceSettings->motionSensitivity,
-        pDeviceSettings->enableHumidityReading ? "true" : "false", pDeviceSettings->enablePressureReading ? "true" : "false", pDeviceSettings->enableMotionDetection ? "true" : "false");
+    for (int iValues = 0; iValues < iExpectedValues; iValues++) {
+        int idx = strlen(reportedProperties);
+        if (iValues == IDX_CURRENTFWVERSION) {
+            sprintf(&reportedProperties[idx], "\"Firmware\":");
+        } else {
+            sprintf(&reportedProperties[idx], "\"%s\":", deviceTwinEntries[iValues].pszName);
+        }
+
+        idx = strlen(reportedProperties);
+        switch (deviceTwinEntries[iValues].twinDataType) {
+            case VALUE_INT:
+                sprintf(&reportedProperties[idx], "%d,", reportedTwinValues[iValues].iValue);
+                break;
+            case VALUE_FLOAT:
+                sprintf(&reportedProperties[idx], "%.1f,", reportedTwinValues[iValues].fValue);
+                break;
+            case VALUE_BOOL:
+                sprintf(&reportedProperties[idx], "%s,", reportedTwinValues[iValues].bValue ? "true" : "false");
+                break;
+            case VALUE_STRING:
+                sprintf(&reportedProperties[idx], "\"%s\",", reportedTwinValues[iValues].pszValue);
+                break;
+            default:
+                return false;
+        }
+    }
+
+    int idx = strlen(reportedProperties);
+    sprintf(&reportedProperties[idx-1], "%s", "}");
+    DEBUGMSG(ZONE_HUBMSG, "idx = %d %s",idx, reportedProperties);
+    DEBUGMSG(ZONE_INFO, "Sending reportedProperties to IoTHub inside %s", "SendDeviceInfo");
     return DevKitMQTTClient_ReportState(reportedProperties);
-}
-
-bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message, DEVICE_SETTINGS *pDesiredDeviceSettings, DEVICE_SETTINGS *pReportedDeviceSettings, DEVICE_PROPERTIES *pReportedDeviceProperties)
-{
-    JSON_Value *root_value;
-    root_value = json_parse_string(message);
-
- #ifdef DIAGNOSTIC_INFO_TWIN_PARSING_RAW_DATA
-    for (int i = 0; i < strlen(message); i = i + 80)
-    {
-        char szTmp[81];
-        strncpy(szTmp, message + i, 80);
-        szTmp[80] = '\0';
-        LogInfo("%s", szTmp);
-        delay(200);
-    }
-#endif
-   
-    bool sendAck = false;
-
-    if (json_value_get_type(root_value) != JSONObject) {
-        if (root_value != NULL) {
-            json_value_free(root_value);
-        }
-        LogError("parse %s failed", message);
-        return sendAck;
-    }
-
-    sendAck = true;
-    JSON_Object *root_object = json_value_get_object(root_value);
-
-    if (json_object_has_value(root_object, "desired")) {
-        // Device Twin desired and reported properties when connected to the IoT Hub
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired or reported properties found!");
-            delay(200);
-#endif            
-        if (json_object_dothas_value(root_object,"desired.measureInterval.value")) {
-            pDesiredDeviceSettings->measureInterval = json_object_dotget_number(root_object, "desired.measureInterval.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.measureInterval.value = %d", pDesiredDeviceSettings->measureInterval);
-            delay(200);
-#endif            
-            pDesiredDeviceSettings->mImsec = pDesiredDeviceSettings->measureInterval * 1000;
-        }
-        if (json_object_dothas_value(root_object,"desired.sendInterval.value")) {
-            pDesiredDeviceSettings->sendInterval = json_object_dotget_number(root_object, "desired.sendInterval.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.sendInterval.value = %d", pDesiredDeviceSettings->sendInterval);
-            delay(200);
-#endif            
-            pDesiredDeviceSettings->sImsec = pDesiredDeviceSettings->sendInterval * 1000;
-        }
-        if (json_object_dothas_value(root_object,"desired.warmingUpTime.value")) {
-            pDesiredDeviceSettings->warmingUpTime = json_object_dotget_number(root_object, "desired.warmingUpTime.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.warmingUpTime.value = %d", pDesiredDeviceSettings->warmingUpTime);
-            delay(200);
-#endif            
-            pDesiredDeviceSettings->wUTmsec = pDesiredDeviceSettings->warmingUpTime * 60000;
-        }
-        if (json_object_dothas_value(root_object,"desired.motionDetectionInterval.value")) {
-            pDesiredDeviceSettings->motionDetectionInterval = json_object_dotget_number(root_object, "desired.motionDetectionInterval.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.motionDetectionInterval.value = %d", pDesiredDeviceSettings->motionDetectionInterval);
-            delay(200);
-#endif            
-            pDesiredDeviceSettings->motionInMsec = pDesiredDeviceSettings->motionDetectionInterval * 1000;
-        }
-        if (json_object_dothas_value(root_object,"desired.sleepTime.value")) {
-            pDesiredDeviceSettings->dSmsec = json_object_dotget_number(root_object, "desired.sleepTime.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.sleepTime.value = %d", pDesiredDeviceSettings->dSmsec);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"desired.temperatureAlert.value")) {
-            pDesiredDeviceSettings->temperatureAlert = json_object_dotget_number(root_object, "desired.temperatureAlert.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.temperatureAlert.value = %d", pDesiredDeviceSettings->temperatureAlert);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"desired.temperatureAccuracy.value")) {
-            pDesiredDeviceSettings->temperatureAccuracy = json_object_dotget_number(root_object, "desired.temperatureAccuracy.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.temperatureAccuracy.value = %.1f", pDesiredDeviceSettings->temperatureAccuracy);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"desired.pressureAccuracy.value")) {
-            pDesiredDeviceSettings->pressureAccuracy = json_object_dotget_number(root_object, "desired.pressureAccuracy.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.pressureAccuracy.value = %.1f", pDesiredDeviceSettings->pressureAccuracy);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"desired.humidityAccuracy.value")) {
-            pDesiredDeviceSettings->humidityAccuracy = json_object_dotget_number(root_object, "desired.humidityAccuracy.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.humidityAccuracy.value = %.1f", pDesiredDeviceSettings->humidityAccuracy);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"desired.maxDeltaBetweenMeasurements.value")) {
-            pDesiredDeviceSettings->maxDeltaBetweenMeasurements = json_object_dotget_number(root_object, "desired.maxDeltaBetweenMeasurements.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.maxDeltaBetweenMeasurements.value = %d", pDesiredDeviceSettings->maxDeltaBetweenMeasurements);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"desired.temperatureCorrection.value")) {
-            pDesiredDeviceSettings->temperatureCorrection = json_object_dotget_number(root_object, "desired.temperatureCorrection.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.temperatureCorrection.value = %.1f", pDesiredDeviceSettings->temperatureCorrection);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"desired.pressureCorrection.value")) {
-            pDesiredDeviceSettings->pressureCorrection = json_object_dotget_number(root_object, "desired.pressureCorrection.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.pressureCorrection.value = %.1f", pDesiredDeviceSettings->pressureCorrection);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"desired.humidityCorrection.value")) {
-            pDesiredDeviceSettings->humidityCorrection = json_object_dotget_number(root_object, "desired.humidityCorrection.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.humidityCorrection.value = %.1f", pDesiredDeviceSettings->humidityCorrection);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"desired.motionSensitivity.value")) {
-            pDesiredDeviceSettings->motionSensitivity = json_object_dotget_number(root_object, "desired.motionSensitivity.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.motionSensitivity.value = %d", pDesiredDeviceSettings->motionSensitivity);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"desired.enableHumidityReading.value")) {
-            pDesiredDeviceSettings->enableHumidityReading = json_object_dotget_boolean(root_object, "desired.enableHumidityReading.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.enableHumidityReading.value = %d", pDesiredDeviceSettings->enableHumidityReading);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"desired.enablePressureReading.value")) {
-            pDesiredDeviceSettings->enablePressureReading = json_object_dotget_boolean(root_object, "desired.enablePressureReading.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.enablePressureReading.value = %d", pDesiredDeviceSettings->enablePressureReading);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"desired.enableMotionDetection.value")) {
-            pDesiredDeviceSettings->enableMotionDetection = json_object_dotget_boolean(root_object, "desired.enableMotionDetection.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("desired.enableMotionDetection.value = %d", pDesiredDeviceSettings->enableMotionDetection);
-            delay(200);
-#endif            
-        }
-
-        if (json_object_dothas_value(root_object, "reported.measureInterval")) {
-            pReportedDeviceSettings->measureInterval = json_object_dotget_number(root_object, "reported.measureInterval");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.measureInterval = %d", pReportedDeviceSettings->measureInterval);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"reported.sendInterval")) {
-            pReportedDeviceSettings->sendInterval = json_object_dotget_number(root_object, "reported.sendInterval");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.sendInterval = %d", pReportedDeviceSettings->sendInterval);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"reported.warmingUpTime")) {
-            pReportedDeviceSettings->warmingUpTime = json_object_dotget_number(root_object, "reported.warmingUpTime");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.warmingUpTime = %d", pReportedDeviceSettings->warmingUpTime);
-            delay(200);
-#endif            
-            pReportedDeviceSettings->wUTmsec = pReportedDeviceSettings->warmingUpTime * 60000;
-        }
-        if (json_object_dothas_value(root_object,"reported.sleepTime")) {
-            pReportedDeviceSettings->dSmsec = json_object_dotget_number(root_object, "reported.sleepTime");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.sleepTime = %d", pReportedDeviceSettings->dSmsec);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"reported.temperatureAlert")) {
-            pReportedDeviceSettings->temperatureAlert = json_object_dotget_number(root_object, "reported.temperatureAlert");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.temperatureAlert = %d", pReportedDeviceSettings->temperatureAlert);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"reported.temperatureAccuracy")) {
-            pReportedDeviceSettings->temperatureAccuracy = json_object_dotget_number(root_object, "reported.temperatureAccuracy");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.temperatureAccuracy = %.1f", pReportedDeviceSettings->temperatureAccuracy);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"reported.humidityAccuracy")) {
-            pReportedDeviceSettings->humidityAccuracy = json_object_dotget_number(root_object, "reported.humidityAccuracy");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.humidityAccuracy = %.1f", pReportedDeviceSettings->humidityAccuracy);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"reported.pressureAccuracy")) {
-            pReportedDeviceSettings->pressureAccuracy = json_object_dotget_number(root_object, "reported.pressureAccuracy");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.pressureAccuracy = %.1f", pReportedDeviceSettings->pressureAccuracy);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"reported.maxDeltaBetweenMeasurements")) {
-            pReportedDeviceSettings->maxDeltaBetweenMeasurements = json_object_dotget_number(root_object, "reported.maxDeltaBetweenMeasurements");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.maxDeltaBetweenMeasurements = %d", pReportedDeviceSettings->maxDeltaBetweenMeasurements);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"reported.temperatureCorrection")) {
-            pReportedDeviceSettings->temperatureCorrection = json_object_dotget_number(root_object, "reported.temperatureCorrection");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.temperatureCorrection = %.1f", pReportedDeviceSettings->temperatureCorrection);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"reported.humidityCorrection")) {
-            pReportedDeviceSettings->humidityCorrection = json_object_dotget_number(root_object, "reported.humidityCorrection");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.humidityCorrection = %.1f", pReportedDeviceSettings->humidityCorrection);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"reported.pressureCorrection")) {
-            pReportedDeviceSettings->pressureCorrection = json_object_dotget_number(root_object, "reported.pressureCorrection");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.pressureCorrection = %.1f", pReportedDeviceSettings->pressureCorrection);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"reported.readHumidity")) {
-            pReportedDeviceSettings->enableHumidityReading = json_object_dotget_boolean(root_object, "reported.readHumidity");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.readHumidity = %d", pReportedDeviceSettings->enableHumidityReading);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"reported.readPressure")) {
-            pReportedDeviceSettings->enablePressureReading = json_object_dotget_boolean(root_object, "reported.readPressure");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.readPressure = %d", pReportedDeviceSettings->enablePressureReading);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"reported.enableMotionDetection")) {
-            pReportedDeviceSettings->enableMotionDetection = json_object_dotget_boolean(root_object, "reported.enableMotionDetection");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.enableMotionDetection = %d", pReportedDeviceSettings->enableMotionDetection);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"reported.motionSensitivity")) {
-            pReportedDeviceSettings->motionSensitivity = json_object_dotget_number(root_object, "reported.motionSensitivity");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.motionSensitivity = %d", pReportedDeviceSettings->motionSensitivity);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"reported.motionDetectionInterval")) {
-            pReportedDeviceSettings->motionDetectionInterval = json_object_dotget_number(root_object, "reported.motionDetectionInterval");
-            hasReportedValues = true;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.motionDetectionInterval = %d", pReportedDeviceSettings->motionDetectionInterval);
-            delay(200);
-#endif            
-            pReportedDeviceSettings->motionInMsec = pReportedDeviceSettings->motionDetectionInterval * 1000;
-        }
-        if (json_object_dothas_value(root_object,"reported.firmware.currentFwVersion")) {
-            char *pszVersion = (char *)json_object_dotget_string(root_object, "reported.firmware.currentFwVersion");
-            if (pReportedDeviceProperties->pszCurrentFwVersion != NULL) {
-                free(pReportedDeviceProperties->pszCurrentFwVersion);
-                pReportedDeviceProperties->pszCurrentFwVersion = NULL;
-            }
-            int fwVersionLength = strlen(pszVersion);
-            pReportedDeviceProperties->pszCurrentFwVersion = (char *)malloc(fwVersionLength + 1);
-            snprintf(pReportedDeviceProperties->pszCurrentFwVersion, fwVersionLength + 1, "%s", pszVersion);
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.firmware.currentFwVersion = %s", pReportedDeviceProperties->pszCurrentFwVersion);
-            delay(200);
-#endif
-        }
-        if (json_object_dothas_value(root_object,"reported.Model")) {
-            char *pszModel = (char *)json_object_dotget_string(root_object, "reported.Model");
-            if (pReportedDeviceProperties->pszDeviceModel != NULL) {
-                free(pReportedDeviceProperties->pszDeviceModel);
-                pReportedDeviceProperties->pszDeviceModel = NULL;
-            }
-            int nModelLength = strlen(pszModel);
-            pReportedDeviceProperties->pszDeviceModel = (char *)malloc(nModelLength + 1);
-            snprintf(pReportedDeviceProperties->pszDeviceModel, nModelLength + 1, "%s", pszModel);
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.Model = %s", pReportedDeviceProperties->pszDeviceModel);
-            delay(200);
-#endif
-        }
-        if (json_object_dothas_value(root_object,"reported.Location")) {
-            char *pszLocation = (char *)json_object_dotget_string(root_object, "reported.Location");
-            if (pReportedDeviceProperties->pszLocation != NULL) {
-                free(pReportedDeviceProperties->pszLocation);
-                pReportedDeviceProperties->pszLocation = NULL;
-            }
-            int nLocationLength = strlen(pszLocation);
-            pReportedDeviceProperties->pszLocation = (char *)malloc(nLocationLength + 1);
-            snprintf(pReportedDeviceProperties->pszLocation, nLocationLength + 1, "%s", pszLocation);
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-            LogInfo("reported.Location = %s", pReportedDeviceProperties->pszLocation);
-            delay(200);
-#endif
-        }
-
-        if (! hasReportedValues) {
-            // New Device: No reported properties yet in Device Twin. Let's set reported to desired and send them to the IoT Central Application.
-            initialDeviceTwinReportReceived = true;
-            pReportedDeviceSettings->measureInterval = pDesiredDeviceSettings->measureInterval;
-            pReportedDeviceSettings->sendInterval = pDesiredDeviceSettings->sendInterval;
-            pReportedDeviceSettings->sleepInterval = pDesiredDeviceSettings->sleepInterval;
-            pReportedDeviceSettings->warmingUpTime = pDesiredDeviceSettings->warmingUpTime;
-            pReportedDeviceSettings->motionDetectionInterval = pDesiredDeviceSettings->motionDetectionInterval;
-            pReportedDeviceSettings->upTime = pDesiredDeviceSettings->upTime;
-            pReportedDeviceSettings->mImsec = pDesiredDeviceSettings->mImsec;
-            pReportedDeviceSettings->sImsec = pDesiredDeviceSettings->sImsec;
-            pReportedDeviceSettings->wUTmsec = pDesiredDeviceSettings->wUTmsec;
-            pReportedDeviceSettings->dSmsec = pDesiredDeviceSettings->dSmsec;
-            pReportedDeviceSettings->motionInMsec = pDesiredDeviceSettings->motionInMsec;
-            pReportedDeviceSettings->temperatureAlert = pDesiredDeviceSettings->temperatureAlert;
-            pReportedDeviceSettings->temperatureAccuracy = pDesiredDeviceSettings->temperatureAccuracy;
-            pReportedDeviceSettings->pressureAccuracy = pDesiredDeviceSettings->pressureAccuracy;
-            pReportedDeviceSettings->humidityAccuracy = pDesiredDeviceSettings->humidityAccuracy;
-            pReportedDeviceSettings->maxDeltaBetweenMeasurements = pDesiredDeviceSettings->maxDeltaBetweenMeasurements;
-            pReportedDeviceSettings->temperatureCorrection = pDesiredDeviceSettings->temperatureCorrection;
-            pReportedDeviceSettings->pressureCorrection = pDesiredDeviceSettings->pressureCorrection;
-            pReportedDeviceSettings->humidityCorrection = pDesiredDeviceSettings->humidityCorrection;
-            pReportedDeviceSettings->motionSensitivity = pDesiredDeviceSettings->motionSensitivity;
-            pReportedDeviceSettings->enableHumidityReading = pDesiredDeviceSettings->enableHumidityReading;
-            pReportedDeviceSettings->enablePressureReading = pDesiredDeviceSettings->enablePressureReading;
-            pReportedDeviceSettings->enableMotionDetection = pDesiredDeviceSettings->enableMotionDetection;
-        }
-
-        initialDeviceTwinReportReceived = true;
-
-    } else {        // We are informed about a change in one of the desired properties
-        if (json_object_dothas_value(root_object,"measureInterval.value")) {
-            pDesiredDeviceSettings->measureInterval = (int)json_object_dotget_number(root_object, "measureInterval.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("measureInterval.value = %d", pDesiredDeviceSettings->measureInterval);
-            delay(200);
-#endif            
-            pDesiredDeviceSettings->mImsec = pDesiredDeviceSettings->measureInterval * 1000;
-        }
-        if (json_object_dothas_value(root_object,"sendInterval.value")) {
-            pDesiredDeviceSettings->sendInterval = (int)json_object_dotget_number(root_object, "sendInterval.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("sendInterval.value = %d", pDesiredDeviceSettings->sendInterval);
-            delay(200);
-#endif            
-            pDesiredDeviceSettings->sImsec = pDesiredDeviceSettings->sendInterval * 1000;
-        }
-        if (json_object_dothas_value(root_object,"warmingUpTime.value")) {
-            pDesiredDeviceSettings->warmingUpTime = (int)json_object_dotget_number(root_object, "warmingUpTime.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("warmingUpTime.value = %d", pDesiredDeviceSettings->warmingUpTime);
-            delay(200);
-#endif            
-            pDesiredDeviceSettings->wUTmsec = pDesiredDeviceSettings->warmingUpTime * 60000;
-        }
-        if (json_object_dothas_value(root_object,"motionDetectionInterval.value")) {
-            pDesiredDeviceSettings->motionDetectionInterval = (int)json_object_dotget_number(root_object, "motionDetectionInterval.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("motionDetectionInterval.value = %d", pDesiredDeviceSettings->motionDetectionInterval);
-            delay(200);
-#endif            
-            pDesiredDeviceSettings->motionInMsec = pDesiredDeviceSettings->motionDetectionInterval * 1000;
-        }
-        if (json_object_dothas_value(root_object,"sleepTime.value")) {
-            pDesiredDeviceSettings->dSmsec = (int)json_object_dotget_number(root_object, "sleepTime.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("sleepTime.value = %d", pDesiredDeviceSettings->dSmsec);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"temperatureAlert.value")) {
-            pDesiredDeviceSettings->temperatureAlert = (int)json_object_dotget_number(root_object, "temperatureAlert.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("temperatureAlert.value = %d", pDesiredDeviceSettings->temperatureAlert);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"temperatureAccuracy.value")) {
-            pDesiredDeviceSettings->temperatureAccuracy = json_object_dotget_number(root_object, "temperatureAccuracy.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("temperatureAccuracy.value = %d", pDesiredDeviceSettings->temperatureAccuracy);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"pressureAccuracy.value")) {
-            pDesiredDeviceSettings->pressureAccuracy = json_object_dotget_number(root_object, "pressureAccuracy.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("pressureAccuracy.value = %d", pDesiredDeviceSettings->pressureAccuracy);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"humidityAccuracy.value")) {
-            pDesiredDeviceSettings->humidityAccuracy = json_object_dotget_number(root_object, "humidityAccuracy.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("humidityAccuracy.value = %d", pDesiredDeviceSettings->humidityAccuracy);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"maxDeltaBetweenMeasurements.value")) {
-            pDesiredDeviceSettings->maxDeltaBetweenMeasurements = (int)json_object_dotget_number(root_object, "maxDeltaBetweenMeasurements.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("maxDeltaBetweenMeasurements.value = %d", pDesiredDeviceSettings->maxDeltaBetweenMeasurements);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"temperatureCorrection.value")) {
-            pDesiredDeviceSettings->temperatureCorrection = json_object_dotget_number(root_object, "temperatureCorrection.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("temperatureCorrection.value = %d", pDesiredDeviceSettings->temperatureCorrection);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"pressureCorrection.value")) {
-            pDesiredDeviceSettings->pressureCorrection = json_object_dotget_number(root_object, "pressureCorrection.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("pressureCorrection.value = %d", pDesiredDeviceSettings->pressureCorrection);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"humidityCorrection.value")) {
-            pDesiredDeviceSettings->humidityCorrection = json_object_dotget_number(root_object, "humidityCorrection.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("humidityCorrection.value = %d", pDesiredDeviceSettings->humidityCorrection);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"motionSensitivity.value")) {
-            pDesiredDeviceSettings->motionSensitivity = json_object_dotget_number(root_object, "motionSensitivity.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("motionSensitivity.value = %d", pDesiredDeviceSettings->motionSensitivity);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"enableHumidityReading.value")) {
-            pDesiredDeviceSettings->enableHumidityReading = json_object_dotget_boolean(root_object, "enableHumidityReading.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("enableHumidityReading.value = %d", pDesiredDeviceSettings->enableHumidityReading);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"enablePressureReading.value")) {
-            pDesiredDeviceSettings->enablePressureReading = json_object_dotget_boolean(root_object, "enablePressureReading.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("denablePressureReading.value = %d", pDesiredDeviceSettings->enablePressureReading);
-            delay(200);
-#endif            
-        }
-        if (json_object_dothas_value(root_object,"enableMotionDetection.value")) {
-            pDesiredDeviceSettings->enableMotionDetection = json_object_dotget_boolean(root_object, "enableMotionDetection.value");
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_DESIRED
-            LogInfo("enableMotionDetection.value = %d", pDesiredDeviceSettings->enableMotionDetection);
-            delay(200);
-#endif            
-        }
-    }
-
-    json_value_free(root_value);
-
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING
-    LogInfo("DIAGNOSTIC_INFO_TWIN_PARSING  measureInterval = %d, sendInterval = %d, warmingUpTime = %d, delayTime = %d", pDesiredDeviceSettings->measureInterval, pDesiredDeviceSettings->sendInterval, pDesiredDeviceSettings->warmingUpTime, pDesiredDeviceSettings->dSmsec);
-    delay(200);
-    LogInfo("DIAGNOSTIC_INFO_TWIN_PARSING  temperatureAccuracy = %f, pressureAccuracy = %f, humidityAccuracy = %f", pDesiredDeviceSettings->temperatureAccuracy, pDesiredDeviceSettings->pressureAccuracy, pDesiredDeviceSettings->humidityAccuracy);
-    delay(200);
-    LogInfo("DIAGNOSTIC_INFO_TWIN_PARSING  temperatureAlert = %d, maxDeltaBetweenMeasurements = %d", pDesiredDeviceSettings->temperatureAlert, pDesiredDeviceSettings->maxDeltaBetweenMeasurements);
-    delay(200);
-    LogInfo("DIAGNOSTIC_INFO_TWIN_PARSING  motionSensitivity = %d, motionDetectionInterval = %d", pDesiredDeviceSettings->motionSensitivity, pDesiredDeviceSettings->motionDetectionInterval);
-    delay(200);
-    LogInfo("DIAGNOSTIC_INFO_TWIN_PARSING  enableHumidityReading = %d, enablePressureReading = %d, enableMotionDetection = %d", pDesiredDeviceSettings->enableHumidityReading, pDesiredDeviceSettings->enablePressureReading, pDesiredDeviceSettings->enableMotionDetection);
-#endif
-
-    return sendAck;
 }
 
 bool InitialDeviceTwinDesiredReceived()
 {
     bool initialReceived = initialDeviceTwinReportReceived;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-    LogInfo("InitialDeviceTwinDesiredReceived = %d", initialReceived);
-    delay(200);
-#endif
+    DEBUGMSG(ZONE_VERBOSE, "InitialDeviceTwinDesiredReceived = %d", initialReceived);
     return initialReceived;
 }
 
-bool SendReportedDeviceTwinValues()
+int MeasurementInterval()
 {
-    bool sendReportedValues = ! hasReportedValues;
-#ifdef DIAGNOSTIC_INFO_TWIN_PARSING_REPORTED
-    LogInfo("SendReportedDeviceTwinValues = %d", sendReportedValues);
-    delay(200);
-#endif
-    return sendReportedValues;
+    DEBUGMSG(ZONE_VERBOSE, "MeasurementInterval(), isInitialized = %d, interval = %d", isInitialized, reportedTwinValues[IDX_MEASUREINTERVAL].iValue * 1000);
+    return isInitialized ? reportedTwinValues[IDX_MEASUREINTERVAL].iValue * 1000 : -1;
+}
+
+int SleepInterval()
+{
+    DEBUGMSG(ZONE_VERBOSE, "SleepInterval(), isInitialized = %d, interval = %d", isInitialized, reportedTwinValues[IDX_SLEEPTIME].iValue);
+    return isInitialized ? reportedTwinValues[IDX_SLEEPTIME].iValue : -1;
+}
+
+int MotionInterval()
+{
+    DEBUGMSG(ZONE_VERBOSE, "MotionInterval(), isInitialized = %d, interval = %d", isInitialized, reportedTwinValues[IDX_MOTIONDETECTIONINTERVAL].iValue * 1000);
+    return isInitialized ? reportedTwinValues[IDX_MOTIONDETECTIONINTERVAL].iValue * 1000 : -1;
+}
+
+int WarmingUpTime()
+{
+    DEBUGMSG(ZONE_VERBOSE, "WarmingUpTime(), isInitialized = %d, interval = %d", isInitialized,  reportedTwinValues[IDX_WARMINGUPTIME].iValue * 60 * 1000);
+    return isInitialized ? reportedTwinValues[IDX_WARMINGUPTIME].iValue * 60 * 1000 : -1;
+}
+
+int MotionSensitivity()
+{
+    return isInitialized ? reportedTwinValues[IDX_MOTIONSENSITIVITY].iValue : -1;
+}
+
+bool MotionDetectionEnabled()
+{
+    return isInitialized ? reportedTwinValues[IDX_ENABLEMOTIONDETECTION].bValue : false;
+}
+
+bool UpdateReportedValues()
+{
+    return updateReportedValues;
 }

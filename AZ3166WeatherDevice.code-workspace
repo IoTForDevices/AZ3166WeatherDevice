@@ -6,6 +6,9 @@
     ],
     "settings": {
         "IoTWorkbench.BoardId": "devkit",
-        "IoTWorkbench.DevicePath": "Device"
+        "IoTWorkbench.DevicePath": "Device",
+        "files.associations": {
+            "cstdio": "cpp"
+        }
     }
 }

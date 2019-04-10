@@ -1,8 +1,7 @@
 #include "Arduino.h"
 #include "azure_c_shared_utility/xlogging.h"
 #include "Sensor.h"
-
-#define DIAGNOSTIC_INFO_MOTIONREADINGS_NOT
+#include "DebugZones.h"
 
 static DevI2C *ext_i2c;
 static HTS221Sensor *ht_sensor;
@@ -95,9 +94,7 @@ bool MotionDetected(int motionSensitivity)
     
     if (! hasFailed)
     {
-#ifdef DIAGNOSTIC_INFO_MOTIONREADINGS
-        LogInfo("DIAGNOSTIC_INFO_MOTIONREADINGS: Accelerator Axes - x: %d, y: %d, z: %d", hasFailed ? 0xFFFF : axes[0], axes[1], axes[2]);
-#endif
+        DEBUGMSG(ZONE_MOTIONDETECT, "DIAGNOSTIC_INFO_MOTIONREADINGS: Accelerator Axes - x: %d, y: %d, z: %d", hasFailed ? 0xFFFF : axes[0], axes[1], axes[2]);
         if (! motionInitialized)
         {
             xReading = axes[0];
@@ -108,9 +105,7 @@ bool MotionDetected(int motionSensitivity)
         else
         {
             motionDetected = abs(xReading - axes[0]) > motionSensitivity || abs(yReading - axes[1]) > motionSensitivity || abs(zReading - axes[2]) > motionSensitivity;
-#ifdef DIAGNOSTIC_INFO_MOTIONREADINGS
-            LogInfo("DIAGNOSTIC_INFO_MOTIONREADINGS: Motion detected: %s", motionDetected ? "true" : "false");
-#endif
+            DEBUGMSG(ZONE_MOTIONDETECT, "DIAGNOSTIC_INFO_MOTIONREADINGS: Motion detected: %s", motionDetected ? "true" : "false");
             xReading = axes[0];
             yReading = axes[1];
             zReading = axes[2];

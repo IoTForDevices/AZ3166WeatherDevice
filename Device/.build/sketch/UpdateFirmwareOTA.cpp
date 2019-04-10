@@ -5,8 +5,7 @@
 #include "OTAFirmwareUpdate.h"
 #include "SystemTime.h"
 #include "Config.h"
-
-#define DIAGNOSTIC_INFO_UPDATEFIRMWARE_NOT
+#include "DebugZones.h"
 
 static char *currentFirmwareVersion = DEVICE_FIRMWARE_VERSION;
 
@@ -82,9 +81,7 @@ void OTAUpdateFailed(const char *failedMsg)
     Screen.print(1, "OTA failed:");
     Screen.print(2, failedMsg);
     Screen.print(3, " ");
-#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
-    LogInfo("Failed to update firmware %s: %s, disable OTA update.", fwInfo.fwVersion != NULL ? fwInfo.fwVersion : "<unknown>", failedMsg);
-#endif
+    DEBUGMSG(ZONE_FWOTAUPD, "Failed to update firmware %s: %s, disable OTA update.", fwInfo.fwVersion != NULL ? fwInfo.fwVersion : "<unknown>", failedMsg);
 }
 
 void SetNewFirmwareInfo(const char *pszFWVersion, const char *pszFWLocation, const char *pszFWChecksum, int fileSize)
@@ -110,29 +107,21 @@ void SetNewFirmwareInfo(const char *pszFWVersion, const char *pszFWLocation, con
 // Check for new firmware
 void CheckNewFirmware()
 {
-#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
-    LogInfo("CheckNewFirmware called!");
-#endif
+    DEBUGMSG(ZONE_FWOTAUPD, "%s", "CheckNewFirmware called!");
 
     if (!enableOTA)
     {
-#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
-        LogInfo("enableOTA = false, not updating firmware!");
-#endif
+        DEBUGMSG(ZONE_FWOTAUPD, "%s", "enableOTA = false, not updating firmware!");
         FreeFwInfo();
         return;
     }
 
-#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
-    LogInfo("fwInfo initialized: %s", fwInfo.fwVersion);
-#endif
+    DEBUGMSG(ZONE_FWOTAUPD, "fwInfo initialized: %s", fwInfo.fwVersion);
 
     if (fwInfo.fwVersion == NULL || fwInfo.fwPackageURI == NULL)
     {
         // Disable
-#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
-        LogInfo("Invalid new firmware infomation retrieved, disable OTA update.");
-#endif
+        DEBUGMSG(ZONE_FWOTAUPD, "%s", "Invalid new firmware infomation retrieved, disable OTA update.");
         enableOTA = false;
         FreeFwInfo();
         return;
@@ -141,9 +130,7 @@ void CheckNewFirmware()
     // Check if the URL is https as we require it for safety purpose.
     if (strlen(fwInfo.fwPackageURI) < 6 || (strncmp("https:", fwInfo.fwPackageURI, 6) != 0))
     {
-#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
-        LogInfo("Didn't pass https for secure connection.");
-#endif
+        DEBUGMSG(ZONE_FWOTAUPD, "%s", "Didn't pass https for secure connection.");
         // Report error status, URINotHTTPS
         OTAUpdateFailed("URINotHTTPS");
         FreeFwInfo();
@@ -153,9 +140,7 @@ void CheckNewFirmware()
     // Check if this is a new version.
     if (IoTHubClient_FwVersionCompare(fwInfo.fwVersion, currentFirmwareVersion) <= 0)
     {
-#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
-        LogInfo("The firmware version from cloud <= the running firmware version");
-#endif
+        DEBUGMSG(ZONE_FWOTAUPD, "The firmware version from cloud (%s) <= the running firmware version (%s)", fwInfo.fwVersion, currentFirmwareVersion);
         FreeFwInfo();
         return;
     }
@@ -163,14 +148,9 @@ void CheckNewFirmware()
     // New firemware
     Screen.print(1, "New firmware:");
     Screen.print(2, fwInfo.fwVersion);
-#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
-    LogInfo("New firmware is available: %s.", fwInfo.fwVersion);
-#endif
-
+    DEBUGMSG(ZONE_FWOTAUPD, "New firmware is available: %s.", fwInfo.fwVersion);
     Screen.print(3, " downloading...");
-#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
-    LogInfo(">> Downloading from %s...", fwInfo.fwPackageURI);
-#endif
+    DEBUGMSG(ZONE_FWOTAUPD, ">> Downloading from %s...", fwInfo.fwPackageURI);
     // Report downloading status.
     char startTimeStr[30];
     time_t t = time(NULL);
@@ -189,9 +169,7 @@ void CheckNewFirmware()
     // Check result
     if (fwSize == 0 || fwSize == -1)
     {
-#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
-        LogInfo("Download Failed!");
-#endif
+        DEBUGMSG(ZONE_FWOTAUPD, "%s", "Download Failed!");
         // Report error status, DownloadFailed
         OTAUpdateFailed("DownloadFailed");
         FreeFwInfo();
@@ -199,9 +177,7 @@ void CheckNewFirmware()
     }
     else if (fwSize == -2)
     {
-#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
-        LogInfo("Firmware update failed due to a device error!", fwInfo.fwPackageURI);
-#endif
+        DEBUGMSG(ZONE_FWOTAUPD, "Firmware update failed due to a device error!", fwInfo.fwPackageURI);
         // Report error status, DeviceError
         OTAUpdateFailed("DeviceError");
         FreeFwInfo();
@@ -209,9 +185,7 @@ void CheckNewFirmware()
     }
     else if (fwSize != fwInfo.fwSize)
     {
-#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
-        LogInfo("Firmware update failed due to file size mismatch!", fwInfo.fwPackageURI);
-#endif
+        DEBUGMSG(ZONE_FWOTAUPD, "Firmware update failed due to file size mismatch!", fwInfo.fwPackageURI);
         // Report error status, FileSizeNotMatch
         OTAUpdateFailed("FileSizeNotMatch");
         FreeFwInfo();
@@ -219,7 +193,7 @@ void CheckNewFirmware()
     }
 
     Screen.print(3, " Finished.");
-    LogInfo(">> Finished download.");
+    DEBUGMSG(ZONE_FWOTAUPD, "%s", ">> Finished download.");
 
     // CRC check
     if (fwInfo.fwPackageCheckValue != NULL)
@@ -229,15 +203,11 @@ void CheckNewFirmware()
         if (checksum == strtoul(fwInfo.fwPackageCheckValue, NULL, 16))
         {
             Screen.print(3, " passed.");
-#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
-            LogInfo(">> CRC check passed.");
-#endif
+            DEBUGMSG(ZONE_FWOTAUPD, "%s", ">> CRC check passed.");
         }
         else
         {
-#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
-            LogInfo("Firmware update failed due to CRC error!", fwInfo.fwPackageURI);
-#endif
+            DEBUGMSG(ZONE_FWOTAUPD, "Firmware update failed due to CRC error!", fwInfo.fwPackageURI);
             // Report error status, VerifyFailed
             OTAUpdateFailed("VerifyFailed");
             Screen.print(3, " CRC failed.");
@@ -255,9 +225,7 @@ void CheckNewFirmware()
     // Applying
     if (OTAApplyNewFirmware(fwSize, checksum) != 0)
     {
-#ifdef DIAGNOSTIC_INFO_UPDATEFIRMWARE
-        LogInfo("Apply Firmware failed!", fwInfo.fwPackageURI);
-#endif
+        DEBUGMSG(ZONE_FWOTAUPD, "Apply Firmware failed!", fwInfo.fwPackageURI);
         // Report error status, ApplyFirmwareFailed
         OTAUpdateFailed("ApplyFirmwareFailed");
         Screen.print(3, " Apply failed.");
@@ -272,7 +240,7 @@ void CheckNewFirmware()
     // Counting down and reboot
     Screen.clean();
     Screen.print(0, "Reboot system");
-    LogInfo("Reboot system to apply the new firmware:");
+    DEBUGMSG(ZONE_FWOTAUPD, "%s", "Reboot system to apply the new firmware:");
     char msg[2] = {0};
     for (int i = 0; i < 5; i++)
     {
