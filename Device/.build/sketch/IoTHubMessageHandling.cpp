@@ -84,7 +84,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message)
     int msgLength = strlen(message);
     for (int i = 0; i < msgLength; i += 100) {
         char szBuffer[101];
-        snprintf(szBuffer, 100, message+i);
+        snprintf(szBuffer, min(100, msgLength - i), message+i);
         DEBUGMSG(ZONE_RAWDATA, "%s", szBuffer);
     }
 #endif
@@ -93,7 +93,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message)
         if (root_value != NULL) {
             json_value_free(root_value);
         }
-        DEBUGMSG(ZONE_ERROR, "parse %s failed", message);
+        DEBUGMSG(ZONE_ERROR, "%s(%d) - parse %s failed", FUNC_NAME, __LINE__, message);
         return sendAck;
     }
 
@@ -109,15 +109,15 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message)
                 switch (deviceTwinEntries[iValues].twinDataType) {
                     case VALUE_INT:
                         desiredTwinValues[iValues].iValue = json_object_dotget_number(root_object, szDesiredValue);
-                        DEBUGMSG(ZONE_TWINPARSING, "%s = %d", szDesiredValue, desiredTwinValues[iValues].iValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = %d", FUNC_NAME, __LINE__, szDesiredValue, desiredTwinValues[iValues].iValue);
                         break;
                     case VALUE_FLOAT:
                         desiredTwinValues[iValues].fValue = json_object_dotget_number(root_object, szDesiredValue);
-                        DEBUGMSG(ZONE_TWINPARSING, "%s = %.1f", szDesiredValue, desiredTwinValues[iValues].fValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = %.1f", FUNC_NAME, __LINE__, szDesiredValue, desiredTwinValues[iValues].fValue);
                         break;
                     case VALUE_BOOL:
                         desiredTwinValues[iValues].bValue = json_object_dotget_boolean(root_object, szDesiredValue);
-                        DEBUGMSG(ZONE_TWINPARSING, "%s = %d", szDesiredValue, desiredTwinValues[iValues].bValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = %d", FUNC_NAME, __LINE__, szDesiredValue, desiredTwinValues[iValues].bValue);
                         break;
                     case VALUE_STRING: {
                         char *pszValue = (char *)json_object_dotget_string(root_object, szDesiredValue);
@@ -128,16 +128,16 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message)
                         }
                         desiredTwinValues[iValues].pszValue = (char *)malloc(iValueLength + 1);
                         if (desiredTwinValues[iValues].pszValue == NULL) {
-                            DEBUGMSG(ZONE_ERROR, "Memory allocation failure for reportedTwinValues[%d]", iValues);
+                            DEBUGMSG(ZONE_ERROR, "%s(%d) - Memory allocation failed for reportedTwinValues[%d]", FUNC_NAME, __LINE__, iValues);
                             sendAck = false;
                             return sendAck;
                         }
                         snprintf(desiredTwinValues[iValues].pszValue, iValueLength + 1, "%s", pszValue);
-                        DEBUGMSG(ZONE_TWINPARSING, "%s = desiredTwinValues[%d]: %s", szDesiredValue, iValues, desiredTwinValues[iValues].pszValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = desiredTwinValues[%d]: %s", FUNC_NAME, __LINE__, szDesiredValue, iValues, desiredTwinValues[iValues].pszValue);
                         break;
                     }
                     default:
-                        DEBUGMSG(ZONE_ERROR, "Undefined Twin Datatype for desiredTwinValues[%d] = %d", iValues, (int)deviceTwinEntries[iValues].twinDataType);
+                        DEBUGMSG(ZONE_ERROR, "%s(%d) - Undefined Twin Datatype for desiredTwinValues[%d] = %d", FUNC_NAME, __LINE__, iValues, (int)deviceTwinEntries[iValues].twinDataType);
                         sendAck = false;
                         return sendAck;
                 }
@@ -145,13 +145,14 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message)
             char szReportedValue[80];    // Potential Risk of overflowing the array
             sprintf(szReportedValue, "reported.%s", deviceTwinEntries[iValues].pszName);
             if (json_object_dothas_value(root_object, szReportedValue)) {
+                hasReportedValues = true;
                 switch (deviceTwinEntries[iValues].twinDataType) {
                     case VALUE_INT:
                         reportedTwinValues[iValues].iValue = json_object_dotget_number(root_object, szReportedValue);
                         if (reportedTwinValues[iValues].iValue != desiredTwinValues[iValues].iValue) {
                             reportedTwinValues[iValues].iValue = desiredTwinValues[iValues].iValue;
                         }
-                        DEBUGMSG(ZONE_TWINPARSING, "%s = reportedTwinValues[%d]: %d", szReportedValue, iValues, reportedTwinValues[iValues].iValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = reportedTwinValues[%d]: %d", FUNC_NAME, __LINE__, szReportedValue, iValues, reportedTwinValues[iValues].iValue);
                         break;
                     case VALUE_FLOAT:
                         reportedTwinValues[iValues].fValue = json_object_dotget_number(root_object, szReportedValue);
@@ -159,7 +160,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message)
                             updateReportedValues = true;
                             reportedTwinValues[iValues].fValue = desiredTwinValues[iValues].fValue;
                         }
-                        DEBUGMSG(ZONE_TWINPARSING, "%s = reportedTwinValues[%d]: %.1f", szReportedValue, iValues, reportedTwinValues[iValues].fValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = reportedTwinValues[%d]: %.1f", FUNC_NAME, __LINE__, szReportedValue, iValues, reportedTwinValues[iValues].fValue);
                         break;
                     case VALUE_BOOL:
                         reportedTwinValues[iValues].bValue = json_object_dotget_boolean(root_object, szReportedValue);
@@ -167,7 +168,7 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message)
                             updateReportedValues = true;
                             reportedTwinValues[iValues].bValue = desiredTwinValues[iValues].bValue;
                         }
-                        DEBUGMSG(ZONE_TWINPARSING, "%s = reportedTwinValues[%d]: %d", szReportedValue, iValues, reportedTwinValues[iValues].bValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = reportedTwinValues[%d]: %d", FUNC_NAME, __LINE__, szReportedValue, iValues, reportedTwinValues[iValues].bValue);
                         break;
                     case VALUE_STRING: {
                         char *pszValue = (char *)json_object_dotget_string(root_object, szReportedValue);
@@ -186,16 +187,16 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message)
                         }
                         reportedTwinValues[iValues].pszValue = (char *)malloc(iValueLength + 1);
                         if (reportedTwinValues[iValues].pszValue == NULL) {
-                            DEBUGMSG(ZONE_ERROR, "Memory allocation failure for reportedTwinValues[%d]", iValues);
+                            DEBUGMSG(ZONE_ERROR, "%s(%d) - Memory allocation failed for reportedTwinValues[%d]", FUNC_NAME, __LINE__, iValues);
                             sendAck = false;
                             return sendAck;
                         }
                         snprintf(reportedTwinValues[iValues].pszValue, iValueLength + 1, "%s", pszValue);
-                        DEBUGMSG(ZONE_TWINPARSING, "%s = reportedTwinValues[%d]: %s", szReportedValue, iValues, reportedTwinValues[iValues].pszValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = reportedTwinValues[%d]: %s", FUNC_NAME, __LINE__, szReportedValue, iValues, reportedTwinValues[iValues].pszValue);
                         break;
                     }
                     default:
-                        DEBUGMSG(ZONE_ERROR, "Undefined Twin Datatype for reportedTwinValues[%d] = %d", iValues, (int)deviceTwinEntries[iValues].twinDataType);
+                        DEBUGMSG(ZONE_ERROR, "%s(%d) - Undefined Twin Datatype for reportedTwinValues[%d] = %d", FUNC_NAME, __LINE__, iValues, (int)deviceTwinEntries[iValues].twinDataType);
                         sendAck = false;
                         return sendAck;
                 }
@@ -208,16 +209,20 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message)
                 switch (deviceTwinEntries[iValues].twinDataType) {
                     case VALUE_INT:
                         reportedTwinValues[iValues].iValue = desiredTwinValues[iValues].iValue;
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> reportedTwinValues[%d]: %d", FUNC_NAME, __LINE__, iValues, reportedTwinValues[iValues].iValue);
                         break;
                     case VALUE_FLOAT:
                         reportedTwinValues[iValues].fValue = desiredTwinValues[iValues].fValue;
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> reportedTwinValues[%d]: %.1f", FUNC_NAME, __LINE__, iValues, reportedTwinValues[iValues].fValue);
                         break;
                     case VALUE_BOOL:
                         reportedTwinValues[iValues].bValue = desiredTwinValues[iValues].bValue;
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> reportedTwinValues[%d]: %d", FUNC_NAME, __LINE__, iValues, reportedTwinValues[iValues].bValue);
                         break;
                     case VALUE_STRING:
                         break;
                     default:
+                        DEBUGMSG(ZONE_ERROR, "%s(%d) - Undefined Twin Datatype for reportedTwinValues[%d] = %d", FUNC_NAME, __LINE__, iValues, (int)deviceTwinEntries[iValues].twinDataType);
                         sendAck = false;
                         return sendAck;
                 }
@@ -233,21 +238,23 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message)
                 switch (deviceTwinEntries[iNewDesiredValue].twinDataType) {
                     case VALUE_INT:
                         desiredTwinValues[iNewDesiredValue].iValue = json_object_dotget_number(root_object, szNewDesiredValue);
-                        DEBUGMSG(ZONE_TWINPARSING, "%s = %d", szNewDesiredValue, desiredTwinValues[iNewDesiredValue].iValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = %d", FUNC_NAME, __LINE__, szNewDesiredValue, desiredTwinValues[iNewDesiredValue].iValue);
                         reportedTwinValues[iNewDesiredValue].iValue = desiredTwinValues[iNewDesiredValue].iValue;
                         if (iNewDesiredValue == IDX_DEBUGMASK) {
+#ifdef LOGGING
                             dpCurSettings.ulZoneMask = desiredTwinValues[iNewDesiredValue].iValue;
+#endif
                         }
                         break;
                     case VALUE_FLOAT:
                         desiredTwinValues[iNewDesiredValue].fValue = json_object_dotget_number(root_object, szNewDesiredValue);
                         reportedTwinValues[iNewDesiredValue].iValue = desiredTwinValues[iNewDesiredValue].iValue;
-                        DEBUGMSG(ZONE_TWINPARSING, "%s = %.1f", szNewDesiredValue, desiredTwinValues[iNewDesiredValue].fValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = %.1f", FUNC_NAME, __LINE__, szNewDesiredValue, desiredTwinValues[iNewDesiredValue].fValue);
                         break;
                     case VALUE_BOOL:
                         desiredTwinValues[iNewDesiredValue].bValue = json_object_dotget_boolean(root_object, szNewDesiredValue);
                         reportedTwinValues[iNewDesiredValue].iValue = desiredTwinValues[iNewDesiredValue].iValue;
-                        DEBUGMSG(ZONE_TWINPARSING, "%s = %d", szNewDesiredValue, desiredTwinValues[iNewDesiredValue].bValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = %d", FUNC_NAME, __LINE__, szNewDesiredValue, desiredTwinValues[iNewDesiredValue].bValue);
                         break;
                     case VALUE_STRING: {
                         char *pszValue = (char *)json_object_dotget_string(root_object, szNewDesiredValue);
@@ -259,12 +266,12 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message)
                         }
                         desiredTwinValues[iNewDesiredValue].pszValue = (char *)malloc(iValueLength + 1);
                         if (desiredTwinValues[iNewDesiredValue].pszValue == NULL) {
-                            DEBUGMSG(ZONE_ERROR, "Memory allocation failure for reportedTwinValues[%d]", iNewDesiredValue);
+                            DEBUGMSG(ZONE_ERROR, "%s(%d) - Memory allocation failed for reportedTwinValues[%d]", FUNC_NAME, __LINE__, iNewDesiredValue);
                             sendAck = false;
                             return sendAck;
                         }
                         snprintf(desiredTwinValues[iNewDesiredValue].pszValue, iValueLength + 1, "%s", pszValue);
-                        DEBUGMSG(ZONE_TWINPARSING, "%s = desiredTwinValues[%d]: %s", szNewDesiredValue, iNewDesiredValue, desiredTwinValues[iNewDesiredValue].pszValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = desiredTwinValues[%d]: %s", FUNC_NAME, __LINE__, szNewDesiredValue, iNewDesiredValue, desiredTwinValues[iNewDesiredValue].pszValue);
 
                         if (reportedTwinValues[iNewDesiredValue].pszValue != NULL) {
                             free(reportedTwinValues[iNewDesiredValue].pszValue);
@@ -272,16 +279,16 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message)
                         }
                         reportedTwinValues[iNewDesiredValue].pszValue = (char *)malloc(iValueLength + 1);
                         if (reportedTwinValues[iNewDesiredValue].pszValue == NULL) {
-                            DEBUGMSG(ZONE_ERROR, "Memory allocation failure for reportedTwinValues[%d]", iNewDesiredValue);
+                            DEBUGMSG(ZONE_ERROR, "%s(%d) - Memory allocation failed for reportedTwinValues[%d]", FUNC_NAME, __LINE__, iNewDesiredValue);
                             sendAck = false;
                             return sendAck;
                         }
                         snprintf(reportedTwinValues[iNewDesiredValue].pszValue, iValueLength + 1, "%s", pszValue);
-                        DEBUGMSG(ZONE_TWINPARSING, "%s = reportedTwinValues[%d]: %s", szNewDesiredValue, iNewDesiredValue, reportedTwinValues[iNewDesiredValue].pszValue);
+                        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = reportedTwinValues[%d]: %s", FUNC_NAME, __LINE__, szNewDesiredValue, iNewDesiredValue, reportedTwinValues[iNewDesiredValue].pszValue);
                         break;
                     }
                     default:
-                        DEBUGMSG(ZONE_ERROR, "Undefined Twin Datatype for desiredTwinValues[%d] = %d", iNewDesiredValue, (int)deviceTwinEntries[iNewDesiredValue].twinDataType);
+                        DEBUGMSG(ZONE_ERROR, "%s(%d) - Undefined Twin Datatype for desiredTwinValues[%d] = %d", FUNC_NAME, __LINE__, iNewDesiredValue, (int)deviceTwinEntries[iNewDesiredValue].twinDataType);
                         sendAck = false;
                         return sendAck;
                 }
@@ -305,11 +312,11 @@ bool CreateTelemetryMessage(char *payload, bool forceCreate)
     float deltaP = abs(telemetryValues[IDX_PRESSURE_TELEMETRY].fValue - p);
     bool temperatureAlert = false;
 
-    DEBUGMSG(ZONE_INIT, "CreateTelemetryMessage(%s, %d", "*payLoad", forceCreate);
-    DEBUGMSG(ZONE_SENSORDATA, "DIAGNOSTIC_INFO_SENSOR_DATA  deltaT = %.2f, deltaH = %.2f, deltaP = %.2f", deltaT, deltaH, deltaP);
-    DEBUGMSG(ZONE_SENSORDATA, "reportedTwinValues[IDX_TEMPERATUREACCURACY].fValue = %.1f, reportedTwinValues[IDX_MAXDELTABETWEENMEASUREMENTS].fValue = %.1f", reportedTwinValues[IDX_TEMPERATUREACCURACY].fValue, reportedTwinValues[IDX_MAXDELTABETWEENMEASUREMENTS].fValue);
-    DEBUGMSG(ZONE_SENSORDATA, "reportedTwinValues[IDX_HUMIDITYACCURACY].fValue = %.1f", reportedTwinValues[IDX_HUMIDITYACCURACY].fValue);
-    DEBUGMSG(ZONE_SENSORDATA, "reportedTwinValues[IDX_PRESSUREACCURACY].fValue = %.1f", reportedTwinValues[IDX_PRESSUREACCURACY].fValue);
+    DEBUGMSG(ZONE_INIT, "--> %s(forceCreate = %d)", FUNC_NAME, __LINE__, forceCreate);
+    DEBUGMSG(ZONE_SENSORDATA, "        deltaT = %.2f, deltaH = %.2f, deltaP = %.2f", deltaT, deltaH, deltaP);
+    DEBUGMSG(ZONE_SENSORDATA, "        reportedTwinValues[IDX_TEMPERATUREACCURACY].fValue = %.1f, reportedTwinValues[IDX_MAXDELTABETWEENMEASUREMENTS].fValue = %.1f", reportedTwinValues[IDX_TEMPERATUREACCURACY].fValue, reportedTwinValues[IDX_MAXDELTABETWEENMEASUREMENTS].fValue);
+    DEBUGMSG(ZONE_SENSORDATA, "        reportedTwinValues[IDX_HUMIDITYACCURACY].fValue = %.1f", reportedTwinValues[IDX_HUMIDITYACCURACY].fValue);
+    DEBUGMSG(ZONE_SENSORDATA, "        reportedTwinValues[IDX_PRESSUREACCURACY].fValue = %.1f", reportedTwinValues[IDX_PRESSUREACCURACY].fValue);
 
     // Correct for sensor jitter
     bool temperatureChanged = (deltaT > reportedTwinValues[IDX_TEMPERATUREACCURACY].fValue) && (deltaT < reportedTwinValues[IDX_MAXDELTABETWEENMEASUREMENTS].fValue);
@@ -320,9 +327,9 @@ bool CreateTelemetryMessage(char *payload, bool forceCreate)
         temperatureChanged = humidityChanged = pressureChanged = true;
     }
 
-    DEBUGMSG(ZONE_SENSORDATA, "DIAGNOSTIC_INFO_SENSOR_DATA  temperatureChanged = %d, humidityChanged = %d, pressureChanged = %d", (int)temperatureChanged, (int)humidityChanged, (int)pressureChanged);
-    DEBUGMSG(ZONE_SENSORDATA, "DIAGNOSTIC_INFO_SENSOR_DATA  temperature = %.1f, humidity = %.1f, pressure = %.1f", telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue, telemetryValues[IDX_HUMIDITY_TELEMETRY].fValue, telemetryValues[IDX_PRESSURE_TELEMETRY].fValue);
-    DEBUGMSG(ZONE_SENSORDATA, "DIAGNOSTIC_INFO_SENSOR_DATA  t = %.1f, h = %.1f, p = %.1f", t, h, p);
+    DEBUGMSG(ZONE_SENSORDATA, "        temperatureChanged = %d, humidityChanged = %d, pressureChanged = %d", temperatureChanged, humidityChanged, pressureChanged);
+    DEBUGMSG(ZONE_SENSORDATA, "        temperature = %.1f, humidity = %.1f, pressure = %.1f", telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue, telemetryValues[IDX_HUMIDITY_TELEMETRY].fValue, telemetryValues[IDX_PRESSURE_TELEMETRY].fValue);
+    DEBUGMSG(ZONE_SENSORDATA, "        t = %.1f, h = %.1f, p = %.1f", t, h, p);
 
     if (temperatureChanged || humidityChanged || pressureChanged) {
         JSON_Value *root_value = json_value_init_object();
@@ -375,7 +382,7 @@ bool CreateTelemetryMessage(char *payload, bool forceCreate)
 
 void CreateEventMsg(char *payload, IOTC_EVENT_TYPE eventType)
 {
-    DEBUGMSG(ZONE_INIT, "%s", "DIAGNOSTIC_INFO_IOTHUBMESSAGEHANDLING  CreateEventMessage Invoked");
+    DEBUGMSG(ZONE_INIT, "--> %s()", FUNC_NAME);
     JSON_Value *root_value = json_value_init_object();
     JSON_Object *root_object = json_value_get_object(root_value);
     char *serialized_string = NULL;
@@ -398,7 +405,7 @@ bool SendDeviceInfo()
     char reportedProperties[1024];
     updateReportedValues = false;
 
-    DEBUGMSG(ZONE_INIT, "%s method called", "SendDeviceInfo");
+    DEBUGMSG(ZONE_INIT, "--> %s()", FUNC_NAME);
     reportedProperties[0] = '{';
     reportedProperties[1] = '\0';
 
@@ -431,39 +438,53 @@ bool SendDeviceInfo()
 
     int idx = strlen(reportedProperties);
     sprintf(&reportedProperties[idx-1], "%s", "}");
-    DEBUGMSG(ZONE_HUBMSG, "idx = %d %s",idx, reportedProperties);
-    DEBUGMSG(ZONE_INFO, "Sending reportedProperties to IoTHub inside %s", "SendDeviceInfo");
+
+#ifdef LOGGING
+    int msgLength = strlen(reportedProperties);
+    for (int i = 0; i < msgLength; i += 100) {
+        char szBuffer[101];
+        snprintf(szBuffer, min(100, msgLength - i), reportedProperties+i);
+        DEBUGMSG(ZONE_RAWDATA, "        %s", szBuffer);
+    }
+#endif
+
+    DEBUGMSG(ZONE_HUBMSG, "    %s() - Sending reportedProperties to IoTHub", FUNC_NAME);
     return DevKitMQTTClient_ReportState(reportedProperties);
 }
 
 bool InitialDeviceTwinDesiredReceived()
 {
-    bool initialReceived = initialDeviceTwinReportReceived;
-    DEBUGMSG(ZONE_VERBOSE, "InitialDeviceTwinDesiredReceived = %d", initialReceived);
-    return initialReceived;
+    DEBUGMSG(ZONE_VERBOSE, "%s() - initialDeviceTwinReportReceived = %d", FUNC_NAME, initialDeviceTwinReportReceived);
+    return initialDeviceTwinReportReceived;
 }
 
 int MeasurementInterval()
 {
-    DEBUGMSG(ZONE_VERBOSE, "MeasurementInterval(), isInitialized = %d, interval = %d", isInitialized, reportedTwinValues[IDX_MEASUREINTERVAL].iValue * 1000);
+    DEBUGMSG(ZONE_VERBOSE, "%s() - isInitialized = %d, interval = %d", FUNC_NAME, isInitialized, reportedTwinValues[IDX_MEASUREINTERVAL].iValue * 1000);
     return isInitialized ? reportedTwinValues[IDX_MEASUREINTERVAL].iValue * 1000 : -1;
+}
+
+int SendInterval()
+{
+    DEBUGMSG(ZONE_VERBOSE, "%s() - isInitialized = %d, interval = %d", FUNC_NAME, isInitialized, reportedTwinValues[IDX_SENDINTERVAL].iValue * 1000);
+    return isInitialized ? reportedTwinValues[IDX_SENDINTERVAL].iValue * 1000 : -1;
 }
 
 int SleepInterval()
 {
-    DEBUGMSG(ZONE_VERBOSE, "SleepInterval(), isInitialized = %d, interval = %d", isInitialized, reportedTwinValues[IDX_SLEEPTIME].iValue);
+    DEBUGMSG(ZONE_VERBOSE, "%s() - isInitialized = %d, interval = %d", FUNC_NAME, isInitialized, reportedTwinValues[IDX_SLEEPTIME].iValue);
     return isInitialized ? reportedTwinValues[IDX_SLEEPTIME].iValue : -1;
 }
 
 int MotionInterval()
 {
-    DEBUGMSG(ZONE_VERBOSE, "MotionInterval(), isInitialized = %d, interval = %d", isInitialized, reportedTwinValues[IDX_MOTIONDETECTIONINTERVAL].iValue * 1000);
+    DEBUGMSG(ZONE_VERBOSE, "%s() - isInitialized = %d, interval = %d", FUNC_NAME, isInitialized, reportedTwinValues[IDX_MOTIONDETECTIONINTERVAL].iValue * 1000);
     return isInitialized ? reportedTwinValues[IDX_MOTIONDETECTIONINTERVAL].iValue * 1000 : -1;
 }
 
 int WarmingUpTime()
 {
-    DEBUGMSG(ZONE_VERBOSE, "WarmingUpTime(), isInitialized = %d, interval = %d", isInitialized,  reportedTwinValues[IDX_WARMINGUPTIME].iValue * 60 * 1000);
+    DEBUGMSG(ZONE_VERBOSE, "%s() - isInitialized = %d, interval = %d", FUNC_NAME, isInitialized,  reportedTwinValues[IDX_WARMINGUPTIME].iValue * 60 * 1000);
     return isInitialized ? reportedTwinValues[IDX_WARMINGUPTIME].iValue * 60 * 1000 : -1;
 }
 

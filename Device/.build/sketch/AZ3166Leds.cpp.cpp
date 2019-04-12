@@ -18,17 +18,17 @@ void ShowTelemetryData(float temperature, float humidity, float pressure, bool s
 void BlinkLED();
 #line 28 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166Leds.cpp"
 void BlinkSendConfirmation();
-#line 62 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+#line 55 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *payLoad, int length);
-#line 68 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+#line 61 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 bool InitWifi();
-#line 81 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+#line 74 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 bool InitIoTHub();
-#line 95 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+#line 88 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 int DeviceMethodCallback(const char *methodName, const unsigned char *payload, int length, unsigned char **response, int *responseLength);
-#line 114 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+#line 107 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 void setup();
-#line 151 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+#line 156 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 void loop();
 #line 13 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166Leds.cpp"
 void ShowTelemetryData(float temperature, float humidity, float pressure, bool showHumidity, bool showPressure)
@@ -75,6 +75,9 @@ void BlinkSendConfirmation()
 #include "UpdateFirmwareOTA.h"
 #include "DebugZones.h"
 
+#include <inttypes.h>
+
+#ifdef LOGGING
 extern "C" DBGPARAM dpCurSettings =
 {
     "AZ3166WeatherDevice",
@@ -86,8 +89,7 @@ extern "C" DBGPARAM dpCurSettings =
     },
     DEBUGZONES
 };
-
-#define DIAGNOSTIC_INFO_MAINMODULE_NOT
+#endif
 
 static bool onReset = false;
 static bool onMeasureNow = false;
@@ -106,15 +108,6 @@ static bool firstMessageSend = false;
 static bool nextMessageDue;
 static bool nextMotionEventDue;
 static bool suppressMessages;
-
-// static DEVICE_SETTINGS reportedDeviceSettings { DEFAULT_MEASURE_INTERVAL, DEFAULT_SEND_INTERVAL, DEFAULT_SLEEP_INTERVAL, DEFAULT_WARMING_UP_TIME, 0,
-//                                                 DEFAULT_MEASURE_INTERVAL_MSEC, DEFAULT_SEND_INTERVAL_MSEC, DEFAULT_WARMING_UP_TIME_MSEC, DEFAULT_WAKEUP_INTERVAL,
-//                                                 DEFAULT_TEMPERATURE_ALERT,
-//                                                 DEFAULT_TEMPERATURE_ACCURACY, DEFAULT_PRESSURE_ACCURACY, DEFAULT_HUMIDITY_ACCURACY,
-//                                                 DEFAULT_MAX_DELTA_BETWEEN_MEASUREMENTS,
-//                                                 0.0, 0.0, 0.0, DEFAULT_MOTION_SENSITIVITY };
-// static DEVICE_PROPERTIES reportedDeviceProperties { NULL, NULL, NULL };                                                
-// static DEVICE_SETTINGS desiredDeviceSettings;
 
 void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *payLoad, int length)
 {
@@ -153,7 +146,7 @@ int DeviceMethodCallback(const char *methodName, const unsigned char *payload, i
 {
     int result = 200;
 
-    DEBUGMSG(ZONE_INIT, "DeviceMethodCallback - methodName = %s", methodName);
+    DEBUGMSG(ZONE_INIT, "--> %s(methodName = %s)", FUNC_NAME, methodName);
 
     if (strcmp(methodName, "Reset") == 0) {
         onReset = HandleReset(response, responseLength);
@@ -205,23 +198,51 @@ void setup()
     send_interval_ms = measure_interval_ms = warming_up_interval_ms = deviceStartTime = motion_interval_ms = SystemTickCounterRead();
 }
 
+#ifdef LOGGING
+void Int64ToString(uint64_t uiValue, char *pszValue)
+{
+    const int NUM_DIGITS = log10(uiValue) + 1;
+    *(pszValue+NUM_DIGITS) = '\0';
+
+    for (size_t i = NUM_DIGITS; i--; uiValue /= 10) {
+        *(pszValue+i) = '0' + (uiValue % 10);
+    }
+}
+#endif
+
 void loop()
 {
     if (InitialDeviceTwinDesiredReceived()) {
-        nextMeasurementDue = (SystemTickCounterRead() - measure_interval_ms) >= MeasurementInterval();
-        nextMessageDue = (SystemTickCounterRead() - send_interval_ms) >= SleepInterval();
-        nextMotionEventDue = (SystemTickCounterRead() - motion_interval_ms) >= MotionInterval();
+        uint64_t tickCount = SystemTickCounterRead();
+#ifdef LOGGING
+        char szTC[40];
+        char szMI[40];
+        char szSI[40];
+        char szMM[40];
+        char szWU[40];
+
+        Int64ToString(tickCount, szTC);
+        Int64ToString(measure_interval_ms, szMI);
+        Int64ToString(send_interval_ms, szSI);
+        Int64ToString(motion_interval_ms, szMM);
+        Int64ToString(warming_up_interval_ms, szWU);
+#endif
+        nextMeasurementDue = (tickCount - measure_interval_ms) >= MeasurementInterval();
+        DEBUGMSG(ZONE_MAINLOOP, "%s(%d), nextMeasurementDue = %d, tickCount = %s, measure_interval_ms = %s, MeasurementInterval() = %d", FUNC_NAME, __LINE__, nextMeasurementDue, szTC, szMI, MeasurementInterval());
+        nextMessageDue = (tickCount - send_interval_ms) >= SendInterval();
+        DEBUGMSG(ZONE_MAINLOOP, "%s(%d), nextMessageDue = %d, tickCount = %s, send_interval_ms = %s, SendInterval() = %d", FUNC_NAME, __LINE__, nextMessageDue, szTC, szSI, SendInterval());
+        nextMotionEventDue = (tickCount - motion_interval_ms) >= MotionInterval();
+        DEBUGMSG(ZONE_MAINLOOP, "%s(%d), nextMotionEventDue = %d, tickCount = %s, motion_interval_ms = %s, MotionInterval() = %d", FUNC_NAME, __LINE__, nextMotionEventDue, szTC, szMM, MotionInterval());
 
         if (! firstMessageSend) {
-            suppressMessages = (SystemTickCounterRead() - warming_up_interval_ms) < WarmingUpTime();
+            suppressMessages = (tickCount - warming_up_interval_ms) < WarmingUpTime();
+            DEBUGMSG(ZONE_MAINLOOP, "%s(%d), suppressMessages = %d, SystemTickCounterRead() = %s, warming_up_interval_ms = %s, WarmingUpTime() = %d", FUNC_NAME, __LINE__, suppressMessages, szTC, szWU, WarmingUpTime());
 
             if (! suppressMessages) {
                 firstMessageSend = true;
-                nextMeasurementDue = true;
+                nextMessageDue = true;
             }
         }
-
-        DEBUGMSG(ZONE_MAINLOOP, "loop nextMeasurementDue = %d, nextMessageDue = %d, nextMotionEventDue = %d, suppressMessages = %d", nextMeasurementDue, nextMessageDue, nextMotionEventDue, suppressMessages);
 
         if (MotionDetectionEnabled()) {
             // Check if the device is in motion or not and enable an alarm if so.
@@ -234,14 +255,14 @@ void loop()
                 DevKitMQTTClient_SendEventInstance(message);
 
                 motion_interval_ms = SystemTickCounterRead();
-                DEBUGMSG(ZONE_MOTIONDETECT, "Sending Motion Detected Event - motion_inteval_ms = %d", motion_interval_ms);
+                DEBUGMSG(ZONE_MOTIONDETECT, "%s(%d) - Sending Motion Detected Event - motion_inteval_ms = %d", FUNC_NAME, __LINE__, motion_interval_ms);
             }
 
-            DEBUGMSG(ZONE_MOTIONDETECT, "Motion Detected = %d, nextMotionEventDue = %d", motionDetected, nextMotionEventDue);
+            DEBUGMSG(ZONE_MOTIONDETECT, "%s(%d) - Motion Detected = %d, nextMotionEventDue = %d", FUNC_NAME, __LINE__, motionDetected, nextMotionEventDue);
         }
 
         if (UpdateReportedValues()) {
-            DEBUGMSG(ZONE_MAINLOOP, "%s", "Sending reported values to IoT Hub");
+            DEBUGMSG(ZONE_HUBMSG, "%s(%d) - Sending reported values to IoT Hub", FUNC_NAME, __LINE__);
             SendDeviceInfo();
         } else if (nextMeasurementDue || nextMessageDue || onMeasureNow) {
             // Read Sensors ...
@@ -249,7 +270,7 @@ void loop()
 
             upTime = (int)(SystemTickCounterRead() - deviceStartTime) / 1000;
             
-            bool temperatureAlert = CreateTelemetryMessage(messagePayload, nextMeasurementDue || onMeasureNow);
+            bool temperatureAlert = CreateTelemetryMessage(messagePayload, nextMessageDue || onMeasureNow);
 
             if (! suppressMessages) {
 
@@ -262,12 +283,13 @@ void loop()
                     DevKitMQTTClient_Event_AddProp(message, JSON_TEMPERATURE_ALERT, temperatureAlert ? "true" : "false");
                     DevKitMQTTClient_Event_AddProp(message, JSON_UPTIME, szUpTime);
                     DevKitMQTTClient_SendEventInstance(message);
-
-                    if (nextMessageDue)
-                    {
-                        send_interval_ms = SystemTickCounterRead();     // reset the send interval because we just did send a message
-                    } 
                 }
+
+                if (nextMessageDue)
+                {
+                    send_interval_ms = SystemTickCounterRead();     // reset the send interval because we just did send a message
+                } 
+
             }
 
             measure_interval_ms = SystemTickCounterRead();      // reset regardless of message send after each sensor reading
@@ -277,31 +299,27 @@ void loop()
             }
             
         } else {
-            DEBUGMSG(ZONE_MAINLOOP, "%s", "Checking for Hub Traffic");
+            DEBUGMSG(ZONE_MAINLOOP, "%s(%d) - Checking for Hub Traffic", FUNC_NAME, __LINE__);
             DevKitMQTTClient_Check();
         }
 
         if (onReset) {
+            DEBUGMSG(ZONE_INIT, "%s(%d) - onReset = true", FUNC_NAME, __LINE__)
             onReset = false;
             NVIC_SystemReset();
         }
 
         if (onFirmwareUpdate) {
-            DEBUGMSG(ZONE_INIT, "onFirmwareUpdate - %s", "Ready to call CheckNewFirmware")
+            DEBUGMSG(ZONE_INIT, "%s(%d) - onFirmwareUpdate = true", FUNC_NAME, __LINE__)
             onFirmwareUpdate = false;
             CheckNewFirmware();
         }
 
-#ifdef DIAGNOSTIC_INFO_MAINMODULE
-        DEBUGMSG(ZONE_MAINLOOP, "%s", "Sleeping for 2000 ms");
-        delay(2000);
-#else
-        DEBUGMSG(ZONE_MAINLOOP, "Sleeping for %d ms", SleepInterval());
+        DEBUGMSG(ZONE_MAINLOOP, "%s(%d) Sleeping for %d ms", FUNC_NAME, __LINE__, SleepInterval());
         delay(SleepInterval());
-#endif
     } else {
         // No initial desired twin values received so assume that deviceSettings does not yet contain the right value
-        DEBUGMSG(ZONE_MAINLOOP, "%s", "No desired twin values, so wait 5000 ms and only check for IoT Hub activities");
+        DEBUGMSG(ZONE_MAINLOOP, "%s(%d) - Check for IoT Hub activities", FUNC_NAME, __LINE__);
         delay(5000);
         DevKitMQTTClient_Check();
     }

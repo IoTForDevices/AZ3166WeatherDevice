@@ -94,7 +94,7 @@ bool MotionDetected(int motionSensitivity)
     
     if (! hasFailed)
     {
-        DEBUGMSG(ZONE_MOTIONDETECT, "DIAGNOSTIC_INFO_MOTIONREADINGS: Accelerator Axes - x: %d, y: %d, z: %d", hasFailed ? 0xFFFF : axes[0], axes[1], axes[2]);
+        DEBUGMSG(ZONE_MOTIONDETECT, "Accelerator Axes - x: %d, y: %d, z: %d", hasFailed ? 0xFFFF : axes[0], axes[1], axes[2]);
         if (! motionInitialized)
         {
             xReading = axes[0];
@@ -105,7 +105,7 @@ bool MotionDetected(int motionSensitivity)
         else
         {
             motionDetected = abs(xReading - axes[0]) > motionSensitivity || abs(yReading - axes[1]) > motionSensitivity || abs(zReading - axes[2]) > motionSensitivity;
-            DEBUGMSG(ZONE_MOTIONDETECT, "DIAGNOSTIC_INFO_MOTIONREADINGS: Motion detected: %s", motionDetected ? "true" : "false");
+            DEBUGMSG(ZONE_MOTIONDETECT, "Motion detected: %s", motionDetected ? "true" : "false");
             xReading = axes[0];
             yReading = axes[1];
             zReading = axes[2];

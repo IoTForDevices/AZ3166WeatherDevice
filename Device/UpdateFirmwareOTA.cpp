@@ -81,7 +81,7 @@ void OTAUpdateFailed(const char *failedMsg)
     Screen.print(1, "OTA failed:");
     Screen.print(2, failedMsg);
     Screen.print(3, " ");
-    DEBUGMSG(ZONE_FWOTAUPD, "Failed to update firmware %s: %s, disable OTA update.", fwInfo.fwVersion != NULL ? fwInfo.fwVersion : "<unknown>", failedMsg);
+    DEBUGMSG(ZONE_ERROR, "<-- %s() - Failed to update fwVersion = %s: failedMsg = %s.", FUNC_NAME, fwInfo.fwVersion != NULL ? fwInfo.fwVersion : "<unknown>", failedMsg);
 }
 
 void SetNewFirmwareInfo(const char *pszFWVersion, const char *pszFWLocation, const char *pszFWChecksum, int fileSize)
@@ -107,11 +107,11 @@ void SetNewFirmwareInfo(const char *pszFWVersion, const char *pszFWLocation, con
 // Check for new firmware
 void CheckNewFirmware()
 {
-    DEBUGMSG(ZONE_FWOTAUPD, "%s", "CheckNewFirmware called!");
+    DEBUGMSG(ZONE_INIT, "--> %s()", FUNC_NAME);
 
     if (!enableOTA)
     {
-        DEBUGMSG(ZONE_FWOTAUPD, "%s", "enableOTA = false, not updating firmware!");
+        DEBUGMSG(ZONE_ERROR, "    %s(%d) - enableOTA = false, not updating firmware!", FUNC_NAME, __LINE__);
         FreeFwInfo();
         return;
     }
@@ -121,7 +121,7 @@ void CheckNewFirmware()
     if (fwInfo.fwVersion == NULL || fwInfo.fwPackageURI == NULL)
     {
         // Disable
-        DEBUGMSG(ZONE_FWOTAUPD, "%s", "Invalid new firmware infomation retrieved, disable OTA update.");
+        DEBUGMSG(ZONE_ERROR, "    %s(%d) - fwVersion and/or fwPackageURI missing.", FUNC_NAME, __LINE__);
         enableOTA = false;
         FreeFwInfo();
         return;
@@ -130,7 +130,7 @@ void CheckNewFirmware()
     // Check if the URL is https as we require it for safety purpose.
     if (strlen(fwInfo.fwPackageURI) < 6 || (strncmp("https:", fwInfo.fwPackageURI, 6) != 0))
     {
-        DEBUGMSG(ZONE_FWOTAUPD, "%s", "Didn't pass https for secure connection.");
+        DEBUGMSG(ZONE_ERROR, "    %s(%d) - No secure connection.", FUNC_NAME, __LINE__);
         // Report error status, URINotHTTPS
         OTAUpdateFailed("URINotHTTPS");
         FreeFwInfo();
@@ -140,7 +140,7 @@ void CheckNewFirmware()
     // Check if this is a new version.
     if (IoTHubClient_FwVersionCompare(fwInfo.fwVersion, currentFirmwareVersion) <= 0)
     {
-        DEBUGMSG(ZONE_FWOTAUPD, "The firmware version from cloud (%s) <= the running firmware version (%s)", fwInfo.fwVersion, currentFirmwareVersion);
+        DEBUGMSG(ZONE_ERROR, "    %s(%d) - fwVersion stored in cloud (%s) <= running fwVersion (%s)", FUNC_NAME, __LINE__, fwInfo.fwVersion, currentFirmwareVersion);
         FreeFwInfo();
         return;
     }
@@ -150,7 +150,7 @@ void CheckNewFirmware()
     Screen.print(2, fwInfo.fwVersion);
     DEBUGMSG(ZONE_FWOTAUPD, "New firmware is available: %s.", fwInfo.fwVersion);
     Screen.print(3, " downloading...");
-    DEBUGMSG(ZONE_FWOTAUPD, ">> Downloading from %s...", fwInfo.fwPackageURI);
+    DEBUGMSG(ZONE_FWOTAUPD, "    %s(%d) - >> Downloading from %s...", FUNC_NAME, __LINE__, fwInfo.fwPackageURI);
     // Report downloading status.
     char startTimeStr[30];
     time_t t = time(NULL);
@@ -169,7 +169,7 @@ void CheckNewFirmware()
     // Check result
     if (fwSize == 0 || fwSize == -1)
     {
-        DEBUGMSG(ZONE_FWOTAUPD, "%s", "Download Failed!");
+        DEBUGMSG(ZONE_ERROR, "    %s(%d) - Download Failed!", FUNC_NAME, __LINE__);
         // Report error status, DownloadFailed
         OTAUpdateFailed("DownloadFailed");
         FreeFwInfo();
@@ -177,7 +177,7 @@ void CheckNewFirmware()
     }
     else if (fwSize == -2)
     {
-        DEBUGMSG(ZONE_FWOTAUPD, "Firmware update failed due to a device error!", fwInfo.fwPackageURI);
+        DEBUGMSG(ZONE_ERROR, "    %s(%d) - Firmware update failed: device error!", FUNC_NAME, __LINE__, fwInfo.fwPackageURI);
         // Report error status, DeviceError
         OTAUpdateFailed("DeviceError");
         FreeFwInfo();
@@ -185,7 +185,7 @@ void CheckNewFirmware()
     }
     else if (fwSize != fwInfo.fwSize)
     {
-        DEBUGMSG(ZONE_FWOTAUPD, "Firmware update failed due to file size mismatch!", fwInfo.fwPackageURI);
+        DEBUGMSG(ZONE_ERROR, "    %s(%d) - Firmware update File Size mismatch!", FUNC_NAME, __LINE__, fwInfo.fwPackageURI);
         // Report error status, FileSizeNotMatch
         OTAUpdateFailed("FileSizeNotMatch");
         FreeFwInfo();
@@ -193,7 +193,7 @@ void CheckNewFirmware()
     }
 
     Screen.print(3, " Finished.");
-    DEBUGMSG(ZONE_FWOTAUPD, "%s", ">> Finished download.");
+    DEBUGMSG(ZONE_FWOTAUPD, "    %s(%d) - >> Finished download.", FUNC_NAME, __LINE__);
 
     // CRC check
     if (fwInfo.fwPackageCheckValue != NULL)
@@ -203,11 +203,11 @@ void CheckNewFirmware()
         if (checksum == strtoul(fwInfo.fwPackageCheckValue, NULL, 16))
         {
             Screen.print(3, " passed.");
-            DEBUGMSG(ZONE_FWOTAUPD, "%s", ">> CRC check passed.");
+            DEBUGMSG(ZONE_FWOTAUPD, "    %s(%d) - >> CRC check passed.", FUNC_NAME, __LINE__);
         }
         else
         {
-            DEBUGMSG(ZONE_FWOTAUPD, "Firmware update failed due to CRC error!", fwInfo.fwPackageURI);
+            DEBUGMSG(ZONE_ERROR, "    %s(%d) - Firmware update failed: CRC error!", FUNC_NAME, __LINE__);
             // Report error status, VerifyFailed
             OTAUpdateFailed("VerifyFailed");
             Screen.print(3, " CRC failed.");
@@ -225,7 +225,7 @@ void CheckNewFirmware()
     // Applying
     if (OTAApplyNewFirmware(fwSize, checksum) != 0)
     {
-        DEBUGMSG(ZONE_FWOTAUPD, "Apply Firmware failed!", fwInfo.fwPackageURI);
+        DEBUGMSG(ZONE_ERROR, "    %s(%d) - Apply Firmware failed!", FUNC_NAME, __LINE__);
         // Report error status, ApplyFirmwareFailed
         OTAUpdateFailed("ApplyFirmwareFailed");
         Screen.print(3, " Apply failed.");
@@ -240,7 +240,7 @@ void CheckNewFirmware()
     // Counting down and reboot
     Screen.clean();
     Screen.print(0, "Reboot system");
-    DEBUGMSG(ZONE_FWOTAUPD, "%s", "Reboot system to apply the new firmware:");
+    DEBUGMSG(ZONE_FWOTAUPD, "    %s(%d) - >> Reboot system.", FUNC_NAME, __LINE__);
     char msg[2] = {0};
     for (int i = 0; i < 5; i++)
     {

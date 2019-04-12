@@ -1,7 +1,9 @@
 #ifndef DEBUG_ZONES_H
 #define DEBUG_ZONES_H
 
-#define LOGGING
+#define LOGGING_NOT
+
+#ifdef LOGGING
 
 typedef struct _DBGPARAM {
     char	lpszName[32];           // Name of module
@@ -68,8 +70,8 @@ extern "C" DBGPARAM dpCurSettings;
 #define ZONEMASK_WARNING      ZONEMASK(14)
 #define ZONEMASK_ERROR        ZONEMASK(15)
 
-#define DEBUGZONES      ZONEMASK_TWINPARSING | ZONEMASK_MAINLOOP | ZONEMASK_INIT | ZONEMASK_ERROR | ZONEMASK_RAWDATA | \
-                        ZONEMASK_DEVMETHODS | ZONEMASK_FWOTAUPD
+#define DEBUGZONES      ZONEMASK_TWINPARSING | ZONEMASK_MAINLOOP | ZONEMASK_SENSORDATA
+#endif
 
 #ifdef LOGGING
 #define DEBUGMSG(cond, format, ...) \

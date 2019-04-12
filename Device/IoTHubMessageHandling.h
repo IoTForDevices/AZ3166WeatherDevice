@@ -90,6 +90,7 @@ bool SendDeviceInfo();
 bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message);
 bool InitialDeviceTwinDesiredReceived();
 int  MeasurementInterval();
+int  SendInterval();
 int  SleepInterval();
 int  MotionInterval();
 int  WarmingUpTime();
