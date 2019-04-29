@@ -49,7 +49,7 @@ const int iExpectedValues = sizeof(deviceTwinEntries)/sizeof(deviceTwinEntries[0
 const int iTelemetryValues = sizeof(telemetryEntries)/sizeof(telemetryEntries[0]);
 DEVICE_DATA desiredTwinValues[iExpectedValues];         // These are the values that are requested from the IOTC application
 DEVICE_DATA reportedTwinValues[iExpectedValues];        // These are the values used by the device application
-DEVICE_PROPERTIES reportedTwinProperties[3];            // These are the reported properties from the IOTC application
+//DEVICE_PROPERTIES reportedTwinProperties[3];            // These are the reported properties from the IOTC application
 DEVICE_DATA telemetryValues[iTelemetryValues];
 
 void InitializeReportedTwinValues()
@@ -72,6 +72,30 @@ void InitializeReportedTwinValues()
     reportedTwinValues[IDX_ENABLEMOTIONDETECTION].bValue = DEFAULT_DETECT_MOTION;
     reportedTwinValues[IDX_MOTIONSENSITIVITY].iValue = DEFAULT_MOTION_SENSITIVITY;
     reportedTwinValues[IDX_DEBUGMASK].iValue = DEFAULT_DEBUGMASK;
+
+    reportedTwinValues[IDX_DEVICEMODEL].pszValue = (char *)malloc(strlen(DEVICE_ID) + 1);
+    if (reportedTwinValues[IDX_DEVICEMODEL].pszValue == NULL) {
+        DEBUGMSG(ZONE_ERROR, "%s(%d) - Memory allocation failed for reportedTwinValues[%d]", FUNC_NAME, __LINE__, IDX_DEVICEMODEL);
+    } else {
+        snprintf(reportedTwinValues[IDX_DEVICEMODEL].pszValue, strlen(DEVICE_ID), "%s", DEVICE_ID);
+        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = reportedTwinValues[%d]: %s", FUNC_NAME, __LINE__, szDesiredValue, IDX_DEVICEMODEL, reportedTwinValues[IDX_DEVICEMODEL].pszValue);
+    }
+
+    reportedTwinValues[IDX_CURRENTFWVERSION].pszValue = (char *)malloc(strlen(DEVICE_FIRMWARE_VERSION) + 1);
+    if (reportedTwinValues[IDX_CURRENTFWVERSION].pszValue == NULL) {
+        DEBUGMSG(ZONE_ERROR, "%s(%d) - Memory allocation failed for reportedTwinValues[%d]", FUNC_NAME, __LINE__, IDX_CURRENTFWVERSION);
+    } else {
+        snprintf(reportedTwinValues[IDX_CURRENTFWVERSION].pszValue, strlen(DEVICE_FIRMWARE_VERSION), "%s", DEVICE_ID);
+        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = reportedTwinValues[%d]: %s", FUNC_NAME, __LINE__, szDesiredValue, IDX_CURRENTFWVERSION, reportedTwinValues[IDX_CURRENTFWVERSION].pszValue);
+    }
+
+    reportedTwinValues[IDX_DEVICELOCATION].pszValue = (char *)malloc(strlen(DEVICE_LOCATION) + 1);
+    if (reportedTwinValues[IDX_DEVICELOCATION].pszValue == NULL) {
+        DEBUGMSG(ZONE_ERROR, "%s(%d) - Memory allocation failed for reportedTwinValues[%d]", FUNC_NAME, __LINE__, IDX_DEVICELOCATION);
+    } else {
+        snprintf(reportedTwinValues[IDX_DEVICELOCATION].pszValue, strlen(DEVICE_LOCATION), "%s", DEVICE_ID);
+        DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = reportedTwinValues[%d]: %s", FUNC_NAME, __LINE__, szDesiredValue, IDX_DEVICELOCATION, reportedTwinValues[IDX_DEVICELOCATION].pszValue);
+    }
 }
 
 bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message)
@@ -248,12 +272,12 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message)
                         break;
                     case VALUE_FLOAT:
                         desiredTwinValues[iNewDesiredValue].fValue = json_object_dotget_number(root_object, szNewDesiredValue);
-                        reportedTwinValues[iNewDesiredValue].iValue = desiredTwinValues[iNewDesiredValue].iValue;
+                        reportedTwinValues[iNewDesiredValue].fValue = desiredTwinValues[iNewDesiredValue].fValue;
                         DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = %.1f", FUNC_NAME, __LINE__, szNewDesiredValue, desiredTwinValues[iNewDesiredValue].fValue);
                         break;
                     case VALUE_BOOL:
                         desiredTwinValues[iNewDesiredValue].bValue = json_object_dotget_boolean(root_object, szNewDesiredValue);
-                        reportedTwinValues[iNewDesiredValue].iValue = desiredTwinValues[iNewDesiredValue].iValue;
+                        reportedTwinValues[iNewDesiredValue].bValue = desiredTwinValues[iNewDesiredValue].bValue;
                         DEBUGMSG(ZONE_TWINPARSING, "%s(%d) >> %s = %d", FUNC_NAME, __LINE__, szNewDesiredValue, desiredTwinValues[iNewDesiredValue].bValue);
                         break;
                     case VALUE_STRING: {
@@ -336,14 +360,14 @@ bool CreateTelemetryMessage(char *payload, bool forceCreate)
         JSON_Object *root_object = json_value_get_object(root_value);
         char *serialized_string = NULL;
 
-        json_object_set_string(root_object, JSON_DEVICEID, DEVICE_ID);
+//        json_object_set_string(root_object, JSON_DEVICEID, reportedTwinValues[IDX_DEVICEMODEL].pszValue);
 
         if (temperatureChanged) {
             telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue = t;
             json_object_set_number(root_object, telemetryEntries[IDX_TEMPERATURE_TELEMETRY].pszName, Round(telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue));
         }
 
-        if(telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue > DEFAULT_TEMPERATURE_ALERT) {
+        if(telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue > reportedTwinValues[IDX_TEMPERATUREALERT].iValue) {
             temperatureAlert = true;
         }
 
@@ -387,7 +411,7 @@ void CreateEventMsg(char *payload, IOTC_EVENT_TYPE eventType)
     JSON_Object *root_object = json_value_get_object(root_value);
     char *serialized_string = NULL;
 
-    json_object_set_string(root_object, JSON_DEVICEID, DEVICE_ID);
+//  json_object_set_string(root_object, JSON_DEVICEID, DEVICE_ID);
     if (eventType == MOTION_EVENT) {
         json_object_set_string(root_object, JSON_EVENT_MOTION, "true");
 //      json_object_set_boolean(root_object, JSON_EVENT_MOTION, true);

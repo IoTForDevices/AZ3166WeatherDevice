@@ -12,6 +12,7 @@ typedef enum {
     VALUE_STRING
 } DEVICE_DATA_TYPE;
 
+/*
 typedef struct {
     int measureInterval;                // Different Intervals
     int sendInterval;
@@ -37,12 +38,15 @@ typedef struct {
     bool enablePressureReading;
     bool enableMotionDetection;
 } DEVICE_SETTINGS;
+*/
 
+/*
 typedef struct {
     char *pszCurrentFwVersion;
     char *pszDeviceModel;
     char *pszLocation;
 } DEVICE_PROPERTIES;
+*/
 
 typedef struct {
     DEVICE_DATA_TYPE twinDataType;
