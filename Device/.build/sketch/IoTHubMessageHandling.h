@@ -12,42 +12,6 @@ typedef enum {
     VALUE_STRING
 } DEVICE_DATA_TYPE;
 
-/*
-typedef struct {
-    int measureInterval;                // Different Intervals
-    int sendInterval;
-    int sleepInterval;
-    int warmingUpTime;
-    int motionDetectionInterval;
-    int upTime;                         // Device uptime in seconds
-    int mImsec;                         // For internal use only - conversion of all intervals into msec
-    int sImsec;
-    int wUTmsec;
-    int dSmsec;                         // Device sleep time in msec
-    int motionInMsec;
-    int temperatureAlert;               // High temperature alert value
-    float temperatureAccuracy;          // Different sensor reading accuracies
-    float pressureAccuracy;
-    float humidityAccuracy;
-    int maxDeltaBetweenMeasurements;    // Maximum value that two sensor readings can change without considering it to be false readings
-    float temperatureCorrection;        // Sensor reading correction factors
-    float pressureCorrection;
-    float humidityCorrection;
-    int motionSensitivity;              // Number to indicate when motion detected between two accelerator readings
-    bool enableHumidityReading;         // Flags to allow suppressing sending of Humidity / Pressure sensor readings
-    bool enablePressureReading;
-    bool enableMotionDetection;
-} DEVICE_SETTINGS;
-*/
-
-/*
-typedef struct {
-    char *pszCurrentFwVersion;
-    char *pszDeviceModel;
-    char *pszLocation;
-} DEVICE_PROPERTIES;
-*/
-
 typedef struct {
     DEVICE_DATA_TYPE twinDataType;
     char *pszName;
