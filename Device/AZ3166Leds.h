@@ -3,7 +3,7 @@
 
 #include "IoTHubMessageHandling.h"
 
-void ShowTelemetryData(float temperature, float humidity, float pressure, DEVICE_SETTINGS *pDeviceSettings);
+void ShowTelemetryData(float temperature, float humidity, float pressure, bool showHumidity, bool showPressure);
 void BlinkLED();
 void BlinkSendConfirmation();
 

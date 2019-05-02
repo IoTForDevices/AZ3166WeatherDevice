@@ -10,10 +10,10 @@
 static RGB_LED rgbLed;
 static char displayBuffer[DISPLAY_SIZE];
 
-void ShowTelemetryData(float temperature, float humidity, float pressure, DEVICE_SETTINGS *pDeviceSettings)
+void ShowTelemetryData(float temperature, float humidity, float pressure, bool showHumidity, bool showPressure)
 {
     snprintf(displayBuffer, DISPLAY_SIZE, "Environment\r\nTemp:%s C\r\nHumidity:%s%%\r\nPressure:%s\r\n",
-        f2s(temperature, 1), pDeviceSettings->enableHumidityReading ? f2s(humidity,1) : "-", pDeviceSettings->enablePressureReading ? f2s(pressure,1) : "-");
+        f2s(temperature, 1), showHumidity ? f2s(humidity,1) : "-", showPressure ? f2s(pressure,1) : "-");
     Screen.print(displayBuffer);
 }
 

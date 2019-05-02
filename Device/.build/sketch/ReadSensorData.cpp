@@ -1,9 +1,12 @@
 #include "Arduino.h"
+#include "azure_c_shared_utility/xlogging.h"
 #include "Sensor.h"
+#include "DebugZones.h"
 
-DevI2C *ext_i2c;
-HTS221Sensor *ht_sensor;
-LPS22HBSensor *lp_sensor;
+static DevI2C *ext_i2c;
+static HTS221Sensor *ht_sensor;
+static LPS22HBSensor *lp_sensor;
+static LSM6DSLSensor *acc_gyro;
 
 void SetupSensors()
 {
@@ -15,6 +18,11 @@ void SetupSensors()
 
     lp_sensor = new LPS22HBSensor(*ext_i2c);
     lp_sensor->init(NULL);
+
+    acc_gyro = new LSM6DSLSensor(*ext_i2c, D4, D5);
+    acc_gyro->init(NULL);
+    acc_gyro->enableAccelerator();
+    acc_gyro->enableGyroscope();
 }
 
 double Round(float var) 
@@ -69,6 +77,42 @@ float ReadPressure()
     }
 
     return Round(p);
+}
+
+int axes[3];
+static bool motionInitialized = false;
+static int xReading;
+static int yReading;
+static int zReading;
+
+bool MotionDetected(int motionSensitivity)
+{
+    bool hasFailed = false;
+    bool motionDetected = false;
+
+    hasFailed = (acc_gyro->getXAxes(axes) != 0);
+    
+    if (! hasFailed)
+    {
+        DEBUGMSG(ZONE_MOTIONDETECT, "Accelerator Axes - x: %d, y: %d, z: %d", hasFailed ? 0xFFFF : axes[0], axes[1], axes[2]);
+        if (! motionInitialized)
+        {
+            xReading = axes[0];
+            yReading = axes[1];
+            zReading = axes[2];
+            motionInitialized = true;
+        }
+        else
+        {
+            motionDetected = abs(xReading - axes[0]) > motionSensitivity || abs(yReading - axes[1]) > motionSensitivity || abs(zReading - axes[2]) > motionSensitivity;
+            DEBUGMSG(ZONE_MOTIONDETECT, "Motion detected: %s", motionDetected ? "true" : "false");
+            xReading = axes[0];
+            yReading = axes[1];
+            zReading = axes[2];
+        }
+        
+    }
+    return motionDetected;
 }
 
 bool IsButtonClicked(unsigned char ulPin)

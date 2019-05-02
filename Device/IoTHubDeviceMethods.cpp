@@ -2,16 +2,12 @@
 #include "AzureIotHub.h"
 #include "parson.h"
 #include "UpdateFirmwareOTA.h"
-
-#define DIAGNOSTIC_INFO_DM_NOT
+#include "DebugZones.h"
 
 
 void BuildResponseString(const char *payLoad, unsigned char **response, int *responseLength)
 {
-#ifdef DIAGNOSTIC_INFO_DM
-    LogInfo("BuildResponseString called with payload: %s", payLoad);
-    delay(200);
-#endif
+    DEBUGMSG(ZONE_INFO, "--> %s(payLoad = %s)", FUNC_NAME, payLoad);
     *responseLength = strlen(payLoad);
     *response = (unsigned char *)malloc(*responseLength);
     strncpy((char *)(*response), payLoad, *responseLength);
@@ -20,9 +16,7 @@ void BuildResponseString(const char *payLoad, unsigned char **response, int *res
 bool HandleReset(unsigned char **response, int *responseLength)
 {
     const char *ok = "{\"result\":\"OK\"}";
-#ifdef DIAGNOSTIC_INFO_DM
-    LogInfo("HandleReset called");
-#endif
+    DEBUGMSG(ZONE_INFO, "--> %s()", FUNC_NAME);
     BuildResponseString(ok, response, responseLength);
     return true;
 }
@@ -30,10 +24,7 @@ bool HandleReset(unsigned char **response, int *responseLength)
 bool HandleFirmwareUpdate(const char *payload, int payloadLength, unsigned char **response, int *responseLength)
 {
     const char *ok = "{\"result\":\"OK\"}";
-#ifdef DIAGNOSTIC_INFO_DM
-    LogInfo("HandleFirmwareUpdate called");
-    LogInfo("Payload = %s", payload);
-#endif
+    DEBUGMSG(ZONE_INFO, "--> %s(payload = %s, payloadLength = %d)", FUNC_NAME, payload, payloadLength);
 
     JSON_Value *root_value;
     root_value = json_parse_string(payload);
@@ -44,7 +35,7 @@ bool HandleFirmwareUpdate(const char *payload, int payloadLength, unsigned char 
         if (root_value != NULL) {
             json_value_free(root_value);
         }
-        LogError("parse %s failed", payload);
+        DEBUGMSG(ZONE_ERROR, "<-- %s: parse %s failed", FUNC_NAME, payload);
         return sendAck;
     }
 
@@ -76,9 +67,7 @@ bool HandleFirmwareUpdate(const char *payload, int payloadLength, unsigned char 
 bool HandleMeasureNow(unsigned char **response, int *responseLength)
 {
     const char *ok = "{\"result\":\"OK\"}";
-#ifdef DIAGNOSTIC_INFO_DM
-    LogInfo("HandleMeasureNow called");
-#endif
+    DEBUGMSG(ZONE_INFO, "--> %s()", FUNC_NAME);
     BuildResponseString(ok, response, responseLength);
     return true;
 }
@@ -86,9 +75,7 @@ bool HandleMeasureNow(unsigned char **response, int *responseLength)
 bool HandleUnknownMethod(unsigned char **response, int *responseLength)
 {
     const char *ok = "{\"result\":\"NOK\"}";
-#ifdef DIAGNOSTIC_INFO_DM
-    LogInfo("HandleUnknownMethod");
-#endif
+    DEBUGMSG(ZONE_INFO, "--> %s()", FUNC_NAME);
     BuildResponseString(ok, response, responseLength);
     return true;
 }
