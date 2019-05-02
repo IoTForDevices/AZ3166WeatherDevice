@@ -56,23 +56,9 @@ void BlinkSendConfirmation()
 # 20 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 2
 
 # 22 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 2
+# 37 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 
-
-
-# 24 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-extern "C" DBGPARAM dpCurSettings =
-{
-    "AZ3166WeatherDevice",
-    {
-        "Init", "Function", "Memory", "Twin Parsing",
-        "IoT Hub Msg Handling", "Raw Data", "Sensor Data", "Main Loop",
-        "Device Methods", "Motion Detection", "Firmware OTA Update", "",
-        "Verbose", "Info", "Warning", "Error"
-    },
-    (0x00000001<<(3)) | (0x00000001<<(7)) | (0x00000001<<(15)) | (0x00000001<<(14))
-};
-
-
+# 37 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 static bool onReset = false;
 static bool onMeasureNow = false;
 static bool onFirmwareUpdate = false;
@@ -93,11 +79,7 @@ static bool suppressMessages;
 
 void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *payLoad, int length)
 {
-    { if ((dpCurSettings.ulZoneMask & (0x00000001<<(0)))) { do{{ if (0) { (void)printf("TwinCallback - Payload: Length = %d", length); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 57 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-   __null
-# 57 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-   ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 57, 0x01, "TwinCallback - Payload: Length = %d", length); } }; }while((void)0,0); delay(200); } }
+    ;
     ParseTwinMessage(updateState, (char *)payLoad);
 }
 
@@ -135,11 +117,7 @@ int DeviceMethodCallback(const char *methodName, const unsigned char *payload, i
 {
     int result = 200;
 
-    { if ((dpCurSettings.ulZoneMask & (0x00000001<<(0)))) { do{{ if (0) { (void)printf("--> %s(methodName = %s)",__func__, methodName); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 92 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-   __null
-# 92 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-   ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 92, 0x01, "--> %s(methodName = %s)",__func__, methodName); } }; }while((void)0,0); delay(200); } };
+    ;;
 
     if (strcmp(methodName, "Reset") == 0) {
         onReset = HandleReset(response, responseLength);
@@ -190,62 +168,22 @@ void setup()
     SetupSensors();
     send_interval_ms = measure_interval_ms = warming_up_interval_ms = deviceStartTime = motion_interval_ms = SystemTickCounterRead();
 }
-
-
-void Int64ToString(uint64_t uiValue, char *pszValue)
-{
-    const int NUM_DIGITS = log10(uiValue) + 1;
-    *(pszValue+NUM_DIGITS) = '\0';
-
-    for (size_t i = NUM_DIGITS; i--; uiValue /= 10) {
-        *(pszValue+i) = '0' + (uiValue % 10);
-    }
-}
-
-
+# 156 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 void loop()
 {
     if (InitialDeviceTwinDesiredReceived()) {
         uint64_t tickCount = SystemTickCounterRead();
-
-        char szTC[40];
-        char szMI[40];
-        char szSI[40];
-        char szMM[40];
-        char szWU[40];
-
-        Int64ToString(tickCount, szTC);
-        Int64ToString(measure_interval_ms, szMI);
-        Int64ToString(send_interval_ms, szSI);
-        Int64ToString(motion_interval_ms, szMM);
-        Int64ToString(warming_up_interval_ms, szWU);
-
+# 173 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
         nextMeasurementDue = (tickCount - measure_interval_ms) >= MeasurementInterval();
-        { if ((dpCurSettings.ulZoneMask & (0x00000001<<(7)))) { do{{ if (0) { (void)printf("%s(%d), nextMeasurementDue = %d, tickCount = %s, measure_interval_ms = %s, MeasurementInterval() = %d",__func__, 174, nextMeasurementDue, szTC, szMI, MeasurementInterval()); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 174 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-       __null
-# 174 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-       ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 174, 0x01, "%s(%d), nextMeasurementDue = %d, tickCount = %s, measure_interval_ms = %s, MeasurementInterval() = %d",__func__, 174, nextMeasurementDue, szTC, szMI, MeasurementInterval()); } }; }while((void)0,0); delay(200); } };
+        ;;
         nextMessageDue = (tickCount - send_interval_ms) >= SendInterval();
-        { if ((dpCurSettings.ulZoneMask & (0x00000001<<(7)))) { do{{ if (0) { (void)printf("%s(%d), nextMessageDue = %d, tickCount = %s, send_interval_ms = %s, SendInterval() = %d",__func__, 176, nextMessageDue, szTC, szSI, SendInterval()); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 176 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-       __null
-# 176 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-       ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 176, 0x01, "%s(%d), nextMessageDue = %d, tickCount = %s, send_interval_ms = %s, SendInterval() = %d",__func__, 176, nextMessageDue, szTC, szSI, SendInterval()); } }; }while((void)0,0); delay(200); } };
+        ;;
         nextMotionEventDue = (tickCount - motion_interval_ms) >= MotionInterval();
-        { if ((dpCurSettings.ulZoneMask & (0x00000001<<(7)))) { do{{ if (0) { (void)printf("%s(%d), nextMotionEventDue = %d, tickCount = %s, motion_interval_ms = %s, MotionInterval() = %d",__func__, 178, nextMotionEventDue, szTC, szMM, MotionInterval()); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 178 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-       __null
-# 178 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-       ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 178, 0x01, "%s(%d), nextMotionEventDue = %d, tickCount = %s, motion_interval_ms = %s, MotionInterval() = %d",__func__, 178, nextMotionEventDue, szTC, szMM, MotionInterval()); } }; }while((void)0,0); delay(200); } };
+        ;;
 
         if (! firstMessageSend) {
             suppressMessages = (tickCount - warming_up_interval_ms) < WarmingUpTime();
-            { if ((dpCurSettings.ulZoneMask & (0x00000001<<(7)))) { do{{ if (0) { (void)printf("%s(%d), suppressMessages = %d, SystemTickCounterRead() = %s, warming_up_interval_ms = %s, WarmingUpTime() = %d",__func__, 182, suppressMessages, szTC, szWU, WarmingUpTime()); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 182 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-           __null
-# 182 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-           ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 182, 0x01, "%s(%d), suppressMessages = %d, SystemTickCounterRead() = %s, warming_up_interval_ms = %s, WarmingUpTime() = %d",__func__, 182, suppressMessages, szTC, szWU, WarmingUpTime()); } }; }while((void)0,0); delay(200); } };
+            ;;
 
             if (! suppressMessages) {
                 firstMessageSend = true;
@@ -264,26 +202,14 @@ void loop()
                 DevKitMQTTClient_SendEventInstance(message);
 
                 motion_interval_ms = SystemTickCounterRead();
-                { if ((dpCurSettings.ulZoneMask & (0x00000001<<(9)))) { do{{ if (0) { (void)printf("%s(%d) - Sending Motion Detected Event - motion_inteval_ms = %d",__func__, 201, motion_interval_ms); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 201 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-               __null
-# 201 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-               ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 201, 0x01, "%s(%d) - Sending Motion Detected Event - motion_inteval_ms = %d",__func__, 201, motion_interval_ms); } }; }while((void)0,0); delay(200); } };
+                ;;
             }
 
-            { if ((dpCurSettings.ulZoneMask & (0x00000001<<(9)))) { do{{ if (0) { (void)printf("%s(%d) - Motion Detected = %d, nextMotionEventDue = %d",__func__, 204, motionDetected, nextMotionEventDue); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 204 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-           __null
-# 204 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-           ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 204, 0x01, "%s(%d) - Motion Detected = %d, nextMotionEventDue = %d",__func__, 204, motionDetected, nextMotionEventDue); } }; }while((void)0,0); delay(200); } };
+            ;;
         }
 
         if (UpdateReportedValues()) {
-            { if ((dpCurSettings.ulZoneMask & (0x00000001<<(4)))) { do{{ if (0) { (void)printf("%s(%d) - Sending reported values to IoT Hub",__func__, 208); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 208 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-           __null
-# 208 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-           ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 208, 0x01, "%s(%d) - Sending reported values to IoT Hub",__func__, 208); } }; }while((void)0,0); delay(200); } };
+            ;;
             SendDeviceInfo();
         } else if (nextMeasurementDue || nextMessageDue || onMeasureNow) {
             // Read Sensors ...
@@ -320,47 +246,27 @@ void loop()
             }
 
         } else {
-            { if ((dpCurSettings.ulZoneMask & (0x00000001<<(7)))) { do{{ if (0) { (void)printf("%s(%d) - Checking for Hub Traffic",__func__, 245); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 245 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-           __null
-# 245 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-           ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 245, 0x01, "%s(%d) - Checking for Hub Traffic",__func__, 245); } }; }while((void)0,0); delay(200); } };
+            ;;
             DevKitMQTTClient_Check();
         }
 
         if (onReset) {
-            { if ((dpCurSettings.ulZoneMask & (0x00000001<<(0)))) { do{{ if (0) { (void)printf("%s(%d) - onReset = true",__func__, 250); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 250 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-           __null
-# 250 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-           ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 250, 0x01, "%s(%d) - onReset = true",__func__, 250); } }; }while((void)0,0); delay(200); } }
+            ;
             onReset = false;
             __NVIC_SystemReset();
         }
 
         if (onFirmwareUpdate) {
-            { if ((dpCurSettings.ulZoneMask & (0x00000001<<(0)))) { do{{ if (0) { (void)printf("%s(%d) - onFirmwareUpdate = true",__func__, 256); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 256 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-           __null
-# 256 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-           ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 256, 0x01, "%s(%d) - onFirmwareUpdate = true",__func__, 256); } }; }while((void)0,0); delay(200); } }
+            ;
             onFirmwareUpdate = false;
             CheckNewFirmware();
         }
 
-        { if ((dpCurSettings.ulZoneMask & (0x00000001<<(7)))) { do{{ if (0) { (void)printf("%s(%d) Sleeping for %d ms",__func__, 261, SleepInterval()); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 261 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-       __null
-# 261 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-       ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 261, 0x01, "%s(%d) Sleeping for %d ms",__func__, 261, SleepInterval()); } }; }while((void)0,0); delay(200); } };
+        ;;
         delay(SleepInterval());
     } else {
         // No initial desired twin values received so assume that deviceSettings does not yet contain the right value
-        { if ((dpCurSettings.ulZoneMask & (0x00000001<<(7)))) { do{{ if (0) { (void)printf("%s(%d) - Check for IoT Hub activities",__func__, 265); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != 
-# 265 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino" 3 4
-       __null
-# 265 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
-       ) l(AZ_LOG_INFO, "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino", __func__, 265, 0x01, "%s(%d) - Check for IoT Hub activities",__func__, 265); } }; }while((void)0,0); delay(200); } };
+        ;;
         delay(5000);
         DevKitMQTTClient_Check();
     }
