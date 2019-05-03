@@ -3,11 +3,10 @@
 #include "DevKitMQTTClient.h"
 #include "DevKitOTAUtils.h"
 #include "OTAFirmwareUpdate.h"
+#include "IoTHubMessageHandling.h"
 #include "SystemTime.h"
 #include "Config.h"
 #include "DebugZones.h"
-
-static char *currentFirmwareVersion = DEVICE_FIRMWARE_VERSION;
 
 static bool hasWifi = false;
 
@@ -76,7 +75,7 @@ void ReportOTAStatus(const char *currentFwVersion, const char *pendingFwVersion,
 // Enter a failed state, print failed message and report status
 void OTAUpdateFailed(const char *failedMsg)
 {
-    ReportOTAStatus(currentFirmwareVersion, fwInfo.fwVersion != NULL ? fwInfo.fwVersion : "", OTA_STATUS_ERROR, failedMsg, "", "");
+    ReportOTAStatus(CurrentFWVersion(), fwInfo.fwVersion != NULL ? fwInfo.fwVersion : "", OTA_STATUS_ERROR, failedMsg, "", "");
     enableOTA = false;
     Screen.print(1, "OTA failed:");
     Screen.print(2, failedMsg);
@@ -103,6 +102,16 @@ void SetNewFirmwareInfo(const char *pszFWVersion, const char *pszFWLocation, con
     }
     fwInfo.fwSize = fileSize;
 }
+
+void ResetFirmwareInfo(const char *pszDesiredFWVersion)
+{
+    fwInfo.fwVersion = (char *)malloc(strlen_P(pszDesiredFWVersion + 1));
+    if (fwInfo.fwVersion != NULL)
+    {
+        strcpy(fwInfo.fwVersion, pszDesiredFWVersion);
+    }
+}
+
 
 // Check for new firmware
 void CheckNewFirmware()
@@ -138,9 +147,9 @@ void CheckNewFirmware()
     }
 
     // Check if this is a new version.
-    if (IoTHubClient_FwVersionCompare(fwInfo.fwVersion, currentFirmwareVersion) <= 0)
+    if (IoTHubClient_FwVersionCompare(fwInfo.fwVersion, CurrentFWVersion()) <= 0)
     {
-        DEBUGMSG(ZONE_ERROR, "    %s(%d) - fwVersion stored in cloud (%s) <= running fwVersion (%s)", FUNC_NAME, __LINE__, fwInfo.fwVersion, currentFirmwareVersion);
+        DEBUGMSG(ZONE_ERROR, "    %s(%d) - fwVersion stored in cloud (%s) <= running fwVersion (%s)", FUNC_NAME, __LINE__, fwInfo.fwVersion, CurrentFWVersion());
         FreeFwInfo();
         return;
     }
@@ -155,7 +164,7 @@ void CheckNewFirmware()
     char startTimeStr[30];
     time_t t = time(NULL);
     strftime(startTimeStr, 30, "%Y-%m-%dT%H:%M:%S.0000000Z", gmtime(&t));
-    ReportOTAStatus(currentFirmwareVersion, fwInfo.fwVersion, OTA_STATUS_DOWNLOADING, fwInfo.fwPackageURI, startTimeStr, "");
+    ReportOTAStatus(CurrentFWVersion(), fwInfo.fwVersion, OTA_STATUS_DOWNLOADING, fwInfo.fwPackageURI, startTimeStr, "");
 
     // Close IoT Hub Client to release the TLS resource for firmware download.
     DevKitMQTTClient_Close();
@@ -194,6 +203,7 @@ void CheckNewFirmware()
 
     Screen.print(3, " Finished.");
     DEBUGMSG(ZONE_FWOTAUPD, "    %s(%d) - >> Finished download.", FUNC_NAME, __LINE__);
+    delay(1000);
 
     // CRC check
     if (fwInfo.fwPackageCheckValue != NULL)
@@ -204,6 +214,7 @@ void CheckNewFirmware()
         {
             Screen.print(3, " passed.");
             DEBUGMSG(ZONE_FWOTAUPD, "    %s(%d) - >> CRC check passed.", FUNC_NAME, __LINE__);
+            delay(1000);
         }
         else
         {
@@ -220,7 +231,7 @@ void CheckNewFirmware()
     char endTimeStr[30];
     t = time(NULL);
     strftime(endTimeStr, 30, "%Y-%m-%dT%H:%M:%S.0000000Z", gmtime(&t));
-    ReportOTAStatus(currentFirmwareVersion, fwInfo.fwVersion, OTA_STATUS_APPLYING, "", startTimeStr, endTimeStr);
+    ReportOTAStatus(CurrentFWVersion(), fwInfo.fwVersion, OTA_STATUS_APPLYING, "", startTimeStr, endTimeStr);
 
     // Applying
     if (OTAApplyNewFirmware(fwSize, checksum) != 0)
@@ -254,3 +265,33 @@ void CheckNewFirmware()
     FreeFwInfo();
     SystemReboot();
 }
+
+void CheckResetFirmwareInfo()
+{
+    DEBUGMSG(ZONE_INIT, "--> %s()", FUNC_NAME);
+    DEBUGMSG(ZONE_FWOTAUPD, "fwInfo initialized: %s", fwInfo.fwVersion);
+
+    // Reset firemware version
+    Screen.print(1, "Reset FW Version:");
+    Screen.print(2, fwInfo.fwVersion);
+    ReportOTAStatus(fwInfo.fwVersion, "", "", "", "", "");
+    delay(2000);
+
+    // Counting down and reboot
+    Screen.clean();
+    Screen.print(0, "Reboot system");
+    DEBUGMSG(ZONE_FWOTAUPD, "    %s(%d) - >> Reboot system.", FUNC_NAME, __LINE__);
+    char msg[2] = {0};
+    for (int i = 0; i < 5; i++)
+    {
+        msg[0] = '0' + 5 - i;
+        Screen.print(2, msg);
+        LogInfo(msg);
+        delay(1000);
+    }
+
+    // Reboot system to apply the firmware.
+    FreeFwInfo();
+    SystemReboot();
+}
+

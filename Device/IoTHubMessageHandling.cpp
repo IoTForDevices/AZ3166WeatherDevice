@@ -669,3 +669,8 @@ bool UpdateReportedValues()
 {
     return updateReportedValues;
 }
+
+char *CurrentFWVersion()
+{
+    return isInitialized ? reportedTwinValues[IDX_CURRENTFWVERSION].pszValue : NULL;
+}

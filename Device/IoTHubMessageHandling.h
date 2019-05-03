@@ -65,5 +65,6 @@ int  WarmingUpTime();
 int  MotionSensitivity();
 bool MotionDetectionEnabled();
 bool UpdateReportedValues();
+char *CurrentFWVersion();
 
 #endif // IOTHUBMESSAGEHANDLING_H

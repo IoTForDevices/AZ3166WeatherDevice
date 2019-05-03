@@ -64,6 +64,40 @@ bool HandleFirmwareUpdate(const char *payload, int payloadLength, unsigned char 
     return sendAck;
 }
 
+bool HandleResetFWVersion(const char *payload, int payloadLength, unsigned char **response, int *responseLength)
+{
+    const char *ok = "{\"result\":\"OK\"}";
+    DEBUGMSG(ZONE_INFO, "--> %s(payload = %s, payloadLength = %d)", FUNC_NAME, payload, payloadLength);
+
+    JSON_Value *root_value;
+    root_value = json_parse_string(payload);
+    
+    bool sendAck = false;
+
+    if (json_value_get_type(root_value) != JSONObject) {
+        if (root_value != NULL) {
+            json_value_free(root_value);
+        }
+        DEBUGMSG(ZONE_ERROR, "<-- %s: parse %s failed", FUNC_NAME, payload);
+        return sendAck;
+    }
+
+    JSON_Object *root_object = json_value_get_object(root_value);
+
+    sendAck = true;
+    const char *pszFWVersion, *pszFWLocation, *pszFWChecksum;
+    int fileSize;
+
+    if (json_object_dothas_value(root_object, "desiredFWVersion")) {
+        pszFWVersion = json_object_get_string(root_object, "desiredFWVersion");
+    }
+
+    ResetFirmwareInfo(pszFWVersion);
+    BuildResponseString(ok, response, responseLength);
+    json_value_free(root_value);
+    return sendAck;
+}
+
 bool HandleMeasureNow(unsigned char **response, int *responseLength)
 {
     const char *ok = "{\"result\":\"OK\"}";

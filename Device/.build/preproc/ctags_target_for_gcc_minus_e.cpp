@@ -62,6 +62,7 @@ void BlinkSendConfirmation()
 static bool onReset = false;
 static bool onMeasureNow = false;
 static bool onFirmwareUpdate = false;
+static bool onResetFWVersion = false;
 
 static bool messageSending = true;
 static uint64_t send_interval_ms;
@@ -112,7 +113,7 @@ bool InitIoTHub()
  * NOTE: These functions must be available inside this source file, prior to the Init and Loop methods.
 
  */
-# 88 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+# 89 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 int DeviceMethodCallback(const char *methodName, const unsigned char *payload, int length, unsigned char **response, int *responseLength)
 {
     int result = 200;
@@ -125,6 +126,8 @@ int DeviceMethodCallback(const char *methodName, const unsigned char *payload, i
         onMeasureNow = HandleMeasureNow(response, responseLength);
     } else if (strcmp(methodName, "FirmwareUpdate") == 0) {
         onFirmwareUpdate = HandleFirmwareUpdate((const char*)payload, length, response, responseLength);
+    } else if (strcmp(methodName, "ResetFWVersion") == 0) {
+        onResetFWVersion = HandleResetFWVersion((const char*)payload, length, response, responseLength);
     } else {
         result = 500;
         HandleUnknownMethod(response, responseLength);
@@ -134,27 +137,6 @@ int DeviceMethodCallback(const char *methodName, const unsigned char *payload, i
 
 void setup()
 {
-    // int nLength = strlen(DEVICE_ID);
-    // reportedDeviceProperties.pszDeviceModel = (char *)malloc(nLength + 1);
-    // if (reportedDeviceProperties.pszDeviceModel == NULL) {
-    //     exit(1);
-    // }
-    // snprintf(reportedDeviceProperties.pszDeviceModel, nLength + 1, "%s", DEVICE_ID);
-
-    // nLength = strlen(DEVICE_LOCATION);
-    // reportedDeviceProperties.pszLocation = (char *)malloc(nLength + 1);
-    // if (reportedDeviceProperties.pszLocation == NULL) {
-    //     exit(1);
-    // }
-    // snprintf(reportedDeviceProperties.pszLocation, nLength + 1, "%s", DEVICE_LOCATION);
-
-    // nLength = strlen(DEVICE_FIRMWARE_VERSION);
-    // reportedDeviceProperties.pszCurrentFwVersion = (char *)malloc(nLength + 1);
-    // if (reportedDeviceProperties.pszCurrentFwVersion == NULL) {
-    //     exit(1);
-    // }
-    // snprintf(reportedDeviceProperties.pszCurrentFwVersion, nLength + 1, "%s", DEVICE_FIRMWARE_VERSION);
-
     if (!InitWifi()) {
         exit(1);
     }
@@ -168,12 +150,12 @@ void setup()
     SetupSensors();
     send_interval_ms = measure_interval_ms = warming_up_interval_ms = deviceStartTime = motion_interval_ms = SystemTickCounterRead();
 }
-# 156 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+# 138 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 void loop()
 {
     if (InitialDeviceTwinDesiredReceived()) {
         uint64_t tickCount = SystemTickCounterRead();
-# 173 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+# 155 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
         nextMeasurementDue = (tickCount - measure_interval_ms) >= MeasurementInterval();
         ;;
         nextMessageDue = (tickCount - send_interval_ms) >= SendInterval();
@@ -260,6 +242,12 @@ void loop()
             ;
             onFirmwareUpdate = false;
             CheckNewFirmware();
+        }
+
+        if (onResetFWVersion) {
+            ;
+            onResetFWVersion = false;
+            CheckResetFirmwareInfo();
         }
 
         ;;

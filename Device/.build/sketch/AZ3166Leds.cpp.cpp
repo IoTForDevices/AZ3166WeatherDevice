@@ -18,17 +18,17 @@ void ShowTelemetryData(float temperature, float humidity, float pressure, bool s
 void BlinkLED();
 #line 28 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166Leds.cpp"
 void BlinkSendConfirmation();
-#line 55 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+#line 56 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *payLoad, int length);
-#line 61 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+#line 62 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 bool InitWifi();
-#line 74 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+#line 75 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 bool InitIoTHub();
-#line 88 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+#line 89 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 int DeviceMethodCallback(const char *methodName, const unsigned char *payload, int length, unsigned char **response, int *responseLength);
-#line 107 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+#line 110 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 void setup();
-#line 156 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+#line 138 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 void loop();
 #line 13 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166Leds.cpp"
 void ShowTelemetryData(float temperature, float humidity, float pressure, bool showHumidity, bool showPressure)
@@ -94,6 +94,7 @@ extern "C" DBGPARAM dpCurSettings =
 static bool onReset = false;
 static bool onMeasureNow = false;
 static bool onFirmwareUpdate = false;
+static bool onResetFWVersion = false;
 
 static bool messageSending = true;
 static uint64_t send_interval_ms;
@@ -154,6 +155,8 @@ int DeviceMethodCallback(const char *methodName, const unsigned char *payload, i
         onMeasureNow = HandleMeasureNow(response, responseLength);
     } else if (strcmp(methodName, "FirmwareUpdate") == 0) {
         onFirmwareUpdate = HandleFirmwareUpdate((const char*)payload, length, response, responseLength);
+    } else if (strcmp(methodName, "ResetFWVersion") == 0) {
+        onResetFWVersion = HandleResetFWVersion((const char*)payload, length, response, responseLength);
     } else {
         result = 500;
         HandleUnknownMethod(response, responseLength);
@@ -163,27 +166,6 @@ int DeviceMethodCallback(const char *methodName, const unsigned char *payload, i
 
 void setup()
 {
-    // int nLength = strlen(DEVICE_ID);
-    // reportedDeviceProperties.pszDeviceModel = (char *)malloc(nLength + 1);
-    // if (reportedDeviceProperties.pszDeviceModel == NULL) {
-    //     exit(1);
-    // }
-    // snprintf(reportedDeviceProperties.pszDeviceModel, nLength + 1, "%s", DEVICE_ID);
-
-    // nLength = strlen(DEVICE_LOCATION);
-    // reportedDeviceProperties.pszLocation = (char *)malloc(nLength + 1);
-    // if (reportedDeviceProperties.pszLocation == NULL) {
-    //     exit(1);
-    // }
-    // snprintf(reportedDeviceProperties.pszLocation, nLength + 1, "%s", DEVICE_LOCATION);
-
-    // nLength = strlen(DEVICE_FIRMWARE_VERSION);
-    // reportedDeviceProperties.pszCurrentFwVersion = (char *)malloc(nLength + 1);
-    // if (reportedDeviceProperties.pszCurrentFwVersion == NULL) {
-    //     exit(1);
-    // }
-    // snprintf(reportedDeviceProperties.pszCurrentFwVersion, nLength + 1, "%s", DEVICE_FIRMWARE_VERSION);
-
     if (!InitWifi()) {
         exit(1);
     }
@@ -313,6 +295,12 @@ void loop()
             DEBUGMSG(ZONE_INIT, "%s(%d) - onFirmwareUpdate = true", FUNC_NAME, __LINE__)
             onFirmwareUpdate = false;
             CheckNewFirmware();
+        }
+
+        if (onResetFWVersion) {
+            DEBUGMSG(ZONE_INIT, "%s(%d) - onResetFWVersion = true", FUNC_NAME, __LINE__)
+            onResetFWVersion = false;
+            CheckResetFirmwareInfo();
         }
 
         DEBUGMSG(ZONE_MAINLOOP, "%s(%d) Sleeping for %d ms", FUNC_NAME, __LINE__, SleepInterval());
