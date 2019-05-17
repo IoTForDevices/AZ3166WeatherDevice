@@ -52,10 +52,11 @@ typedef union {
 #define IDX_PRESSURE_TELEMETRY          2
 #define IDX_UPTIME_TELEMETRY            3
 
+//bool CreateTelemetryMessage(char *payload, bool forceCreate);
 bool CreateTelemetryMessage(char *payload, bool forceCreate);
 void CreateEventMsg(char* payLoad, IOTC_EVENT_TYPE eventType);
 bool SendDeviceInfo();
-bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message);
+bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message, int msgLength);
 bool InitialDeviceTwinDesiredReceived();
 int  MeasurementInterval();
 int  SendInterval();

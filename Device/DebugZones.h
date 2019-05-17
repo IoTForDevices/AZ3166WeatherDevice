@@ -1,3 +1,20 @@
+/**************************************************************************************************
+ * Module Name: DebugZones.h
+ * Version:     2.0.9
+ * Description: Definition of a number of macro's that help debugging the solution.
+ *              These macro's allow more or less debug information to be displayed, allowing to 
+ *              zoom in into problem area's. Debugging information is displayed in the VS Code
+ *              terminal window (or any other remote terminal application), being send from the
+ *              target over USB (RS323 over USB). The global variable dpCurSettings determines
+ *              which data is to be displayed. This value can be set in code, but can also be
+ *              set dynamically through the digital twin.
+ *              NOTE: When enabled (meaning the environment varialbe LOGGING is defined), the
+ *                    application grows significantly because all debug info is not part of the
+ *                    binary. When LOGGING is not defined, debug info is not part of the binary
+ *                    and the digital twin value is being ignored. When building the 
+ *                    application for OTA, make sure that LOGGING is not enabled.
+ * Change Log:
+ **************************************************************************************************/
 #ifndef DEBUG_ZONES_H
 #define DEBUG_ZONES_H
 
@@ -70,7 +87,7 @@ extern "C" DBGPARAM dpCurSettings;
 #define ZONEMASK_WARNING      ZONEMASK(14)
 #define ZONEMASK_ERROR        ZONEMASK(15)
 
-#define DEBUGZONES      ZONEMASK_TWINPARSING | ZONEMASK_RAWDATA | ZONEMASK_FWOTAUPD | ZONEMASK_DEVMETHODS | ZONEMASK_ERROR | ZONEMASK_WARNING
+#define DEBUGZONES      ZONEMASK_INIT | ZONEMASK_TWINPARSING | ZONEMASK_RAWDATA | ZONEMASK_ERROR | ZONEMASK_WARNING
 #endif
 
 #ifdef LOGGING

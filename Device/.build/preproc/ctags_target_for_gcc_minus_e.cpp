@@ -12,6 +12,16 @@
 static RGB_LED rgbLed;
 static char displayBuffer[128];
 
+/**************************************************************************************************************
+
+ * ShowTelemetryData
+
+ * 
+
+ * Show Humidity, Temperature and Pressure readings on the on-board display.
+
+ **************************************************************************************************************/
+# 18 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166Leds.cpp"
 void ShowTelemetryData(float temperature, float humidity, float pressure, bool showHumidity, bool showPressure)
 {
     snprintf(displayBuffer, 128, "Environment\r\nTemp:%s C\r\nHumidity:%s%%\r\nPressure:%s\r\n",
@@ -19,6 +29,16 @@ void ShowTelemetryData(float temperature, float humidity, float pressure, bool s
     Screen.print(displayBuffer);
 }
 
+/**************************************************************************************************************
+
+ * BlinkLED
+
+ * 
+
+ * Turn on the LED for half a second with a not too bright red color.
+
+ **************************************************************************************************************/
+# 30 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166Leds.cpp"
 void BlinkLED()
 {
     rgbLed.turnOff();
@@ -27,6 +47,16 @@ void BlinkLED()
     rgbLed.turnOff();
 }
 
+/**************************************************************************************************************
+
+ * BlinkSendConfirmation
+
+ * 
+
+ * Turn on the LED for half a second with a not too bright blue color.
+
+ **************************************************************************************************************/
+# 43 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166Leds.cpp"
 void BlinkSendConfirmation()
 {
     rgbLed.turnOff();
@@ -78,12 +108,22 @@ static bool nextMessageDue;
 static bool nextMotionEventDue;
 static bool suppressMessages;
 
-void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *payLoad, int length)
-{
-    ;
-    ParseTwinMessage(updateState, (char *)payLoad);
-}
+/**********************************************************************************************************
 
+ * InitWifi
+
+ * 
+
+ * This method is used to check if we are connected to a WiFi network. If so, continue Running
+
+ * normal operations, including starting measuring temperature, humidity, pressure. If we are not
+
+ * connected to a WiFi network, just indicate this on the screen and be non-operational.
+
+ * 
+
+ *********************************************************************************************************/
+# 64 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 bool InitWifi()
 {
     bool hasWifi = false;
@@ -97,6 +137,22 @@ bool InitWifi()
     return hasWifi;
 }
 
+/**********************************************************************************************************
+
+ * InitIoTHub
+
+ * 
+
+ * This method is used to initially connect to an IoT Hub. If connected, continue Running
+
+ * normal operations, including starting measuring temperature, humidity, pressure. If we are not
+
+ * connected to an IoT Hub, just indicate this on the screen and be non-operational.
+
+ * 
+
+ *********************************************************************************************************/
+# 85 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 bool InitIoTHub()
 {
     bool hasIoTHub = DevKitMQTTClient_Init(true);
@@ -108,12 +164,38 @@ bool InitIoTHub()
     return hasIoTHub;
 }
 
-/* IoT Hub Callback functions.
+/********************************************************************************************************
+
+ * IoT Hub Callback functions.
 
  * NOTE: These functions must be available inside this source file, prior to the Init and Loop methods.
 
- */
-# 89 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+ ********************************************************************************************************/
+# 101 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+/********************************************************************************************************
+
+ * DeviceMethodCallback receives direct commands from IoT Hub to be executed on the device
+
+ * Methods can optionally contain parameters (passed in the payload parameter) and will send response
+
+ * messages to IoT Hub as well.
+
+ * 
+
+ * The way this has been implemented is that we call a function with the name HandleXXX. These functions
+
+ * can be found in the source file IoTHubDeviceMethods.cpp. All these functions do the necessary
+
+ * parameter retrieval and they also build a response string. The actual requested functionality that
+
+ * needs to be executed as a result of a direct command is handled by the main program loop. If all
+
+ * paratmers are retrieved sucessfully, a boolean flag is set that will execute code in the main loop,
+
+ * after which the boolean flag will be reset again.
+
+ *******************************************************************************************************/
+# 113 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 int DeviceMethodCallback(const char *methodName, const unsigned char *payload, int length, unsigned char **response, int *responseLength)
 {
     int result = 200;
@@ -135,6 +217,51 @@ int DeviceMethodCallback(const char *methodName, const unsigned char *payload, i
     return result;
 }
 
+/********************************************************************************************************
+
+ * TwinCallback receives desired Device Twin update settings from IoT Hub.
+
+ * The Desired Values are parsed and if found valid, we will act on those desired values by changing
+
+ * settings, after which we make sure to match the desired value with the reported value from the device.
+
+ *******************************************************************************************************/
+# 139 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *payLoad, int length)
+{
+    ;
+    ParseTwinMessage(updateState, (const char *)payLoad, length);
+}
+
+/********************************************************************************************************
+
+ * Int64ToString is a helper function that allows easy display / logging of long integers. These long integers
+
+ * are mainly used in this application to find out when timers are expired in the main loop, after which
+
+ * some action needs to be taken.
+
+ * 
+
+ * NOTE: This function is only available when LOGGING is enabled.
+
+ *******************************************************************************************************/
+
+
+
+
+
+
+/********************************************************************************************************
+
+ * setup is the default initialisation function for Arduino based devices. It will be executed once
+
+ * after (re)booting the system. During initialization we enable WiFi, connect to the IoT Hub and define
+
+ * the callback functions for direct method execution and desired twin updates.
+
+ *******************************************************************************************************/
+# 169 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 void setup()
 {
     if (!InitWifi()) {
@@ -150,12 +277,24 @@ void setup()
     SetupSensors();
     send_interval_ms = measure_interval_ms = warming_up_interval_ms = deviceStartTime = motion_interval_ms = SystemTickCounterRead();
 }
-# 138 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+
+/********************************************************************************************************
+
+ * loop is the default processing loop function for Arduino based devices. It will be executed every time
+
+ * a sleep interval expires. When executing, it checks if there needs to be telemetry data send to the
+
+ * IoT Hub, if code needs to be executed due to direct method calls and polls to find out if IoT Hub
+
+ * requests something from us.
+
+ *******************************************************************************************************/
+# 191 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
 void loop()
 {
     if (InitialDeviceTwinDesiredReceived()) {
         uint64_t tickCount = SystemTickCounterRead();
-# 155 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
+# 208 "c:\\Source\\Repo\\AZ3166WeatherDevice\\Device\\AZ3166WeatherDevice.ino"
         nextMeasurementDue = (tickCount - measure_interval_ms) >= MeasurementInterval();
         ;;
         nextMessageDue = (tickCount - send_interval_ms) >= SendInterval();
@@ -225,6 +364,8 @@ void loop()
 
             if (onMeasureNow) {
                 onMeasureNow = false;
+                // Send reported property to indicate that we just read all sensor values.
+
             }
 
         } else {

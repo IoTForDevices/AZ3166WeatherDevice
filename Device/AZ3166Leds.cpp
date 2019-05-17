@@ -10,6 +10,11 @@
 static RGB_LED rgbLed;
 static char displayBuffer[DISPLAY_SIZE];
 
+/**************************************************************************************************************
+ * ShowTelemetryData
+ * 
+ * Show Humidity, Temperature and Pressure readings on the on-board display.
+ **************************************************************************************************************/
 void ShowTelemetryData(float temperature, float humidity, float pressure, bool showHumidity, bool showPressure)
 {
     snprintf(displayBuffer, DISPLAY_SIZE, "Environment\r\nTemp:%s C\r\nHumidity:%s%%\r\nPressure:%s\r\n",
@@ -17,6 +22,11 @@ void ShowTelemetryData(float temperature, float humidity, float pressure, bool s
     Screen.print(displayBuffer);
 }
 
+/**************************************************************************************************************
+ * BlinkLED
+ * 
+ * Turn on the LED for half a second with a not too bright red color.
+ **************************************************************************************************************/
 void BlinkLED()
 {
     rgbLed.turnOff();
@@ -25,6 +35,11 @@ void BlinkLED()
     rgbLed.turnOff();
 }
 
+/**************************************************************************************************************
+ * BlinkSendConfirmation
+ * 
+ * Turn on the LED for half a second with a not too bright blue color.
+ **************************************************************************************************************/
 void BlinkSendConfirmation()
 {
     rgbLed.turnOff();
