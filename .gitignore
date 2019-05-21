@@ -32,5 +32,5 @@
 *.app
 
 # Temporary build folder
-.\.build
+Device/.build
 Device/.vscode/c_cpp_properties.json
