@@ -34,3 +34,5 @@
 # Temporary build folder
 Device/.build
 Device/.vscode/c_cpp_properties.json
+Device/.vscode/ipch
+
