@@ -13,8 +13,9 @@
  *                    binary. When LOGGING is not defined, debug info is not part of the binary
  *                    and the digital twin value is being ignored. When building the 
  *                    application for OTA, make sure that LOGGING is not enabled.
- * Change Log:
- **************************************************************************************************/
+ * Copyright (c) IoTForDevices. All rights reserved.
+ * Licensed under the MIT license. 
+ ***********************************************************************************************/
 #ifndef DEBUG_ZONES_H
 #define DEBUG_ZONES_H
 
