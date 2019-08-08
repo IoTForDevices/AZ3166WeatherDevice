@@ -29,7 +29,7 @@ typedef struct _DBGPARAM {
     ulong   ulZoneMask;             // Current zone Mask
 } DBGPARAM, *LPDBGPARAM;
 
-extern "C" DBGPARAM dpCurSettings;
+extern DBGPARAM dpCurSettings;
 
 #define ZONEMASK(n) (0x00000001<<(n))
 #define DEBUGZONE(n)  (dpCurSettings.ulZoneMask & (0x00000001<<(n)))
@@ -88,19 +88,18 @@ extern "C" DBGPARAM dpCurSettings;
 #define ZONEMASK_WARNING      ZONEMASK(14)
 #define ZONEMASK_ERROR        ZONEMASK(15)
 
-#define DEBUGZONES      ZONEMASK_INIT | ZONEMASK_TWINPARSING | ZONEMASK_RAWDATA | ZONEMASK_ERROR | ZONEMASK_WARNING
-#endif
+//#define DEBUGZONES      ZONEMASK_INIT | ZONEMASK_MAINLOOP | ZONEMASK_ERROR | ZONEMASK_WARNING
+#define DEBUGZONES      0xFFFF
 
-#ifdef LOGGING
-#define DEBUGMSG(cond, format, ...) \
-{ \
-    if (cond) { \
-        LogInfo(format, __VA_ARGS__); \
-        delay(200); \
-    } \
-}
+#define DEBUGMSG(cond, ...) do { if (cond) { if (Serial.availableForWrite() < 150) { delay (300); } Serial.printf(" [%-25s] %04d - %s: ", __FILE__, __LINE__, FUNC_NAME); Serial.printf(__VA_ARGS__); Serial.printf("\r\n"); } } while ((void)0, 0)
+#define DEBUGMSG_RAW(cond, ...) do { if (cond) { if (Serial.availableForWrite() < MAX_RAW_MSG_BUFFER_SIZE) { delay (300); } Serial.printf(__VA_ARGS__); } } while ((void)0, 0)
+#define DEBUGMSG_FUNC_IN(...) do { if (ZONE_FUNCTION) { if (Serial.availableForWrite() < 80) { delay (300); } Serial.printf(">[%-25s] %04d - %s", __FILE__, __LINE__, FUNC_NAME); Serial.printf(__VA_ARGS__); Serial.printf("\r\n"); } } while ((void)0, 0)
+#define DEBUGMSG_FUNC_OUT(...) do { if (ZONE_FUNCTION) { if (Serial.availableForWrite() < 80) { delay (300); } Serial.printf("<[%-25s] %04d - %s ", __FILE__, __LINE__, FUNC_NAME); Serial.printf(__VA_ARGS__); Serial.printf("\r\n"); } } while ((void)0, 0)
 #else
-#define DEBUGMSG(cond, format, ...) ;
+#define DEBUGMSG(cond, ...);
+#define DEBUGMSG_RAW(cond, ...);
+#define DEBUGMSG_FUNC_IN(...);
+#define DEBUGMSG_FUNC_OUT(...);
 #endif
 
 #endif
