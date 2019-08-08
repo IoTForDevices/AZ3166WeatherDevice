@@ -1,6 +1,8 @@
+#line 1 "ReadSensorData.cpp"
 #include "Arduino.h"
 #include "azure_c_shared_utility/xlogging.h"
 #include "Sensor.h"
+#include "Utils.h"
 #include "DebugZones.h"
 
 static DevI2C *ext_i2c;
@@ -90,11 +92,12 @@ bool MotionDetected(int motionSensitivity)
     bool hasFailed = false;
     bool motionDetected = false;
 
+    DEBUGMSG_FUNC_IN("(%d)", motionSensitivity);
     hasFailed = (acc_gyro->getXAxes(axes) != 0);
     
     if (! hasFailed)
     {
-        DEBUGMSG(ZONE_MOTIONDETECT, "Accelerator Axes - x: %d, y: %d, z: %d", hasFailed ? 0xFFFF : axes[0], axes[1], axes[2]);
+        DEBUGMSG(ZONE_MOTIONDETECT, "Accelerator Axes - x: %d, y: %d, z: %d", axes[0], axes[1], axes[2]);
         if (! motionInitialized)
         {
             xReading = axes[0];
@@ -105,13 +108,15 @@ bool MotionDetected(int motionSensitivity)
         else
         {
             motionDetected = abs(xReading - axes[0]) > motionSensitivity || abs(yReading - axes[1]) > motionSensitivity || abs(zReading - axes[2]) > motionSensitivity;
-            DEBUGMSG(ZONE_MOTIONDETECT, "Motion detected: %s", motionDetected ? "true" : "false");
             xReading = axes[0];
             yReading = axes[1];
             zReading = axes[2];
         }
-        
+    } else {
+        DEBUGMSG(ZONE_ERROR, "Motion detection error");
     }
+
+    DEBUGMSG_FUNC_OUT("= %s", ShowBool(motionDetected));
     return motionDetected;
 }
 

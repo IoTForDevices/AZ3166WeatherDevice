@@ -7,6 +7,7 @@ typedef enum {
 
 typedef enum {
     VALUE_INT,
+    VALUE_ULONG,
     VALUE_BOOL,
     VALUE_FLOAT,
     VALUE_STRING
@@ -14,14 +15,15 @@ typedef enum {
 
 typedef struct {
     DEVICE_DATA_TYPE twinDataType;
-    char *pszName;
+    char const *pszName;
 } DEVICE_ENTRIES;
 
 typedef union { 
-    float fValue;
-    int   iValue;
-    bool  bValue;
-    char *pszValue;
+    float         fValue;
+    int           iValue;
+    uint64_t      ulValue;
+    bool          bValue;
+    char         *pszValue;
 } DEVICE_DATA;
 
 // Indices into DEVICE_TWIN_ENTRIES and DEVICE_TWIN_DATA
@@ -34,18 +36,17 @@ typedef union {
 #define IDX_TEMPERATUREACCURACY         6
 #define IDX_HUMIDITYACCURACY            7
 #define IDX_PRESSUREACCURACY            8
-#define IDX_MAXDELTABETWEENMEASUREMENTS 9
-#define IDX_TEMPERATURECORRECTION       10
-#define IDX_HUMIDITYCORRECTION          11
-#define IDX_PRESSURECORRECTION          12
-#define IDX_READHUMIDITY                13
-#define IDX_READPRESSURE                14
-#define IDX_ENABLEMOTIONDETECTION       15
-#define IDX_MOTIONSENSITIVITY           16
-#define IDX_CURRENTFWVERSION            17
-#define IDX_DEVICEMODEL                 18
-#define IDX_DEVICELOCATION              19
-#define IDX_DEBUGMASK                   20
+#define IDX_TEMPERATURECORRECTION       9
+#define IDX_HUMIDITYCORRECTION          10
+#define IDX_PRESSURECORRECTION          11
+#define IDX_READHUMIDITY                12
+#define IDX_READPRESSURE                13
+#define IDX_ENABLEMOTIONDETECTION       14
+#define IDX_MOTIONSENSITIVITY           15
+#define IDX_CURRENTFWVERSION            16
+#define IDX_DEVICEMODEL                 17
+#define IDX_DEVICELOCATION              18
+#define IDX_DEBUGMASK                   19
 
 #define IDX_TEMPERATURE_TELEMETRY       0
 #define IDX_HUMIDITY_TELEMETRY          1
@@ -53,7 +54,7 @@ typedef union {
 #define IDX_UPTIME_TELEMETRY            3
 
 //bool CreateTelemetryMessage(char *payload, bool forceCreate);
-bool CreateTelemetryMessage(char *payload, bool forceCreate);
+bool CreateTelemetryMessage(char *payload, uint64_t upTime, uint64_t sensorReads, uint64_t telemetrySend, bool forceCreate);
 void CreateEventMsg(char* payLoad, IOTC_EVENT_TYPE eventType);
 bool SendDeviceInfo();
 bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message, int msgLength);
@@ -67,5 +68,6 @@ int  MotionSensitivity();
 bool MotionDetectionEnabled();
 bool UpdateReportedValues();
 char *CurrentFWVersion();
+char *CurrentDevice();
 
 #endif // IOTHUBMESSAGEHANDLING_H

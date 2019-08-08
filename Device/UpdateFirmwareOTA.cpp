@@ -6,6 +6,7 @@
 #include "IoTHubMessageHandling.h"
 #include "SystemTime.h"
 #include "Config.h"
+#include "Utils.h"
 #include "DebugZones.h"
 
 static bool hasWifi = false;
@@ -20,6 +21,8 @@ static int dFwLength;
 
 void FreeFwInfo()
 {
+    DEBUGMSG_FUNC_IN("()");
+
     if (fwInfo.fwVersion != NULL)
     {
         free(fwInfo.fwVersion);
@@ -36,11 +39,13 @@ void FreeFwInfo()
         fwInfo.fwPackageCheckValue = NULL;
     }
     fwInfo.fwSize = 0;
+    DEBUGMSG_FUNC_OUT("");
 }
 
 // Report the OTA update status to Azure
 void ReportOTAStatus(const char *currentFwVersion, const char *pendingFwVersion, const char *fwUpdateStatus, const char *fwUpdateSubstatus, const char *lastFwUpdateStartTime, const char *lastFwUpdateEndTime)
 {
+    DEBUGMSG_FUNC_IN("()");
     OTAStatusMap = Map_Create(NULL);
     Map_Add(OTAStatusMap, "type", "IoTDevKit"); // The type of the firmware
     if (currentFwVersion)
@@ -70,21 +75,26 @@ void ReportOTAStatus(const char *currentFwVersion, const char *pendingFwVersion,
     IoTHubClient_ReportOTAStatus(OTAStatusMap);
     Map_Destroy(OTAStatusMap);
     DevKitMQTTClient_Check();
+    DEBUGMSG_FUNC_OUT("");
 }
 
 // Enter a failed state, print failed message and report status
 void OTAUpdateFailed(const char *failedMsg)
 {
+    DEBUGMSG_FUNC_IN("(%s)", failedMsg);
     ReportOTAStatus(CurrentFWVersion(), fwInfo.fwVersion != NULL ? fwInfo.fwVersion : "", OTA_STATUS_ERROR, failedMsg, "", "");
     enableOTA = false;
     Screen.print(1, "OTA failed:");
     Screen.print(2, failedMsg);
     Screen.print(3, " ");
-    DEBUGMSG(ZONE_ERROR, "<-- %s() - Failed to update fwVersion = %s: failedMsg = %s.", FUNC_NAME, fwInfo.fwVersion != NULL ? fwInfo.fwVersion : "<unknown>", failedMsg);
+    DEBUGMSG(ZONE_ERROR, "Failed to update fwVersion = %s: failedMsg = %s", ShowString(fwInfo.fwVersion), failedMsg);
+
+    DEBUGMSG_FUNC_OUT("");
 }
 
 void SetNewFirmwareInfo(const char *pszFWVersion, const char *pszFWLocation, const char *pszFWChecksum, int fileSize)
 {
+    DEBUGMSG_FUNC_IN("(%s, %s, %s, %d)", pszFWVersion, pszFWLocation, pszFWChecksum, fileSize);
     fwInfo.fwVersion = (char *)malloc(strlen_P(pszFWVersion + 1));
     if (fwInfo.fwVersion != NULL)
     {
@@ -101,65 +111,72 @@ void SetNewFirmwareInfo(const char *pszFWVersion, const char *pszFWLocation, con
         strcpy(fwInfo.fwPackageCheckValue, pszFWChecksum);
     }
     fwInfo.fwSize = fileSize;
+    DEBUGMSG_FUNC_OUT("");
 }
 
 void ResetFirmwareInfo(const char *pszDesiredFWVersion)
 {
+    DEBUGMSG_FUNC_IN("(%s)", pszDesiredFWVersion);
     fwInfo.fwVersion = (char *)malloc(strlen_P(pszDesiredFWVersion + 1));
     if (fwInfo.fwVersion != NULL)
     {
         strcpy(fwInfo.fwVersion, pszDesiredFWVersion);
     }
+    DEBUGMSG_FUNC_OUT("");
 }
 
 
 // Check for new firmware
 void CheckNewFirmware()
 {
-    DEBUGMSG(ZONE_INIT, "--> %s()", FUNC_NAME);
+    DEBUGMSG_FUNC_IN("()");
 
     if (!enableOTA)
     {
-        DEBUGMSG(ZONE_ERROR, "    %s(%d) - enableOTA = false, not updating firmware!", FUNC_NAME, __LINE__);
+        DEBUGMSG(ZONE_ERROR, "enableOTA = false, not updating firmware!");
         FreeFwInfo();
+        DEBUGMSG_FUNC_OUT("");
         return;
     }
 
-    DEBUGMSG(ZONE_FWOTAUPD, "fwInfo initialized: %s", fwInfo.fwVersion);
+    DEBUGMSG(ZONE_FWOTAUPD, "fwInfo initialized: %s", ShowString(fwInfo.fwVersion));
 
     if (fwInfo.fwVersion == NULL || fwInfo.fwPackageURI == NULL)
     {
         // Disable
-        DEBUGMSG(ZONE_ERROR, "    %s(%d) - fwVersion and/or fwPackageURI missing.", FUNC_NAME, __LINE__);
+        DEBUGMSG(ZONE_ERROR, "fwVersion and/or fwPackageURI missing!");
         enableOTA = false;
         FreeFwInfo();
+        DEBUGMSG_FUNC_OUT("");
         return;
     }
 
     // Check if the URL is https as we require it for safety purpose.
     if (strlen(fwInfo.fwPackageURI) < 6 || (strncmp("https:", fwInfo.fwPackageURI, 6) != 0))
     {
-        DEBUGMSG(ZONE_ERROR, "    %s(%d) - No secure connection.", FUNC_NAME, __LINE__);
+        DEBUGMSG(ZONE_ERROR, " [%-25s] %04d-%s, No secure connection!");
         // Report error status, URINotHTTPS
         OTAUpdateFailed("URINotHTTPS");
         FreeFwInfo();
+        DEBUGMSG_FUNC_OUT("");
         return;
     }
 
     // Check if this is a new version.
     if (IoTHubClient_FwVersionCompare(fwInfo.fwVersion, CurrentFWVersion()) <= 0)
     {
-        DEBUGMSG(ZONE_ERROR, "    %s(%d) - fwVersion stored in cloud (%s) <= running fwVersion (%s)", FUNC_NAME, __LINE__, fwInfo.fwVersion, CurrentFWVersion());
+        DEBUGMSG(ZONE_ERROR, "fwVersion stored in cloud (%s) <= running fwVersion (%s)!", ShowString(fwInfo.fwVersion), ShowString(CurrentFWVersion()));
         FreeFwInfo();
+        DEBUGMSG_FUNC_OUT("");
         return;
     }
 
     // New firemware
     Screen.print(1, "New firmware:");
     Screen.print(2, fwInfo.fwVersion);
-    DEBUGMSG(ZONE_FWOTAUPD, "New firmware is available: %s.", fwInfo.fwVersion);
+    DEBUGMSG(ZONE_FWOTAUPD, "New firmware is available: %s", ShowString(fwInfo.fwVersion));
     Screen.print(3, " downloading...");
-    DEBUGMSG(ZONE_FWOTAUPD, "    %s(%d) - >> Downloading from %s...", FUNC_NAME, __LINE__, fwInfo.fwPackageURI);
+    DEBUGMSG(ZONE_FWOTAUPD, "Downloading from %s...", ShowString(fwInfo.fwPackageURI));
     // Report downloading status.
     char startTimeStr[30];
     time_t t = time(NULL);
@@ -178,31 +195,34 @@ void CheckNewFirmware()
     // Check result
     if (fwSize == 0 || fwSize == -1)
     {
-        DEBUGMSG(ZONE_ERROR, "    %s(%d) - Download Failed!", FUNC_NAME, __LINE__);
+        DEBUGMSG(ZONE_ERROR, "Download Failed!");
         // Report error status, DownloadFailed
         OTAUpdateFailed("DownloadFailed");
         FreeFwInfo();
+        DEBUGMSG_FUNC_OUT("");
         return;
     }
     else if (fwSize == -2)
     {
-        DEBUGMSG(ZONE_ERROR, "    %s(%d) - Firmware update failed: device error!", FUNC_NAME, __LINE__, fwInfo.fwPackageURI);
+        DEBUGMSG(ZONE_ERROR, "Firmware update failed: device error!");
         // Report error status, DeviceError
         OTAUpdateFailed("DeviceError");
         FreeFwInfo();
+        DEBUGMSG_FUNC_OUT("");
         return;
     }
     else if (fwSize != fwInfo.fwSize)
     {
-        DEBUGMSG(ZONE_ERROR, "    %s(%d) - Firmware update File Size mismatch!", FUNC_NAME, __LINE__, fwInfo.fwPackageURI);
+        DEBUGMSG(ZONE_ERROR, "Firmware update File Size mismatch!");
         // Report error status, FileSizeNotMatch
         OTAUpdateFailed("FileSizeNotMatch");
         FreeFwInfo();
+        DEBUGMSG_FUNC_OUT("");
         return;
     }
 
     Screen.print(3, " Finished.");
-    DEBUGMSG(ZONE_FWOTAUPD, "    %s(%d) - >> Finished download.", FUNC_NAME, __LINE__);
+    DEBUGMSG(ZONE_FWOTAUPD, "Finished download");
     delay(1000);
 
     // CRC check
@@ -213,16 +233,17 @@ void CheckNewFirmware()
         if (checksum == strtoul(fwInfo.fwPackageCheckValue, NULL, 16))
         {
             Screen.print(3, " passed.");
-            DEBUGMSG(ZONE_FWOTAUPD, "    %s(%d) - >> CRC check passed.", FUNC_NAME, __LINE__);
+            DEBUGMSG(ZONE_FWOTAUPD, "CRC check passed");
             delay(1000);
         }
         else
         {
-            DEBUGMSG(ZONE_ERROR, "    %s(%d) - Firmware update failed: CRC error!", FUNC_NAME, __LINE__);
+            DEBUGMSG(ZONE_ERROR, "Firmware update failed: CRC error!");
             // Report error status, VerifyFailed
             OTAUpdateFailed("VerifyFailed");
             Screen.print(3, " CRC failed.");
             FreeFwInfo();
+            DEBUGMSG_FUNC_OUT("");
             return;
         }
     }
@@ -236,11 +257,12 @@ void CheckNewFirmware()
     // Applying
     if (OTAApplyNewFirmware(fwSize, checksum) != 0)
     {
-        DEBUGMSG(ZONE_ERROR, "    %s(%d) - Apply Firmware failed!", FUNC_NAME, __LINE__);
+        DEBUGMSG(ZONE_ERROR, "Apply Firmware failed!");
         // Report error status, ApplyFirmwareFailed
         OTAUpdateFailed("ApplyFirmwareFailed");
         Screen.print(3, " Apply failed.");
         FreeFwInfo();
+        DEBUGMSG_FUNC_OUT("");
         return;
     }
     // Report status
@@ -251,7 +273,7 @@ void CheckNewFirmware()
     // Counting down and reboot
     Screen.clean();
     Screen.print(0, "Reboot system");
-    DEBUGMSG(ZONE_FWOTAUPD, "    %s(%d) - >> Reboot system.", FUNC_NAME, __LINE__);
+    DEBUGMSG(ZONE_FWOTAUPD, "Reboot system");
     char msg[2] = {0};
     for (int i = 0; i < 5; i++)
     {
@@ -263,13 +285,14 @@ void CheckNewFirmware()
 
     // Reboot system to apply the firmware.
     FreeFwInfo();
+    DEBUGMSG_FUNC_OUT("");
     SystemReboot();
 }
 
 void CheckResetFirmwareInfo()
 {
-    DEBUGMSG(ZONE_INIT, "--> %s()", FUNC_NAME);
-    DEBUGMSG(ZONE_FWOTAUPD, "fwInfo initialized: %s", fwInfo.fwVersion);
+    DEBUGMSG_FUNC_IN("()");
+    DEBUGMSG(ZONE_FWOTAUPD, "fwInfo initialized: %s", ShowString(fwInfo.fwVersion));
 
     // Reset firemware version
     Screen.print(1, "Reset FW Version:");
@@ -280,7 +303,7 @@ void CheckResetFirmwareInfo()
     // Counting down and reboot
     Screen.clean();
     Screen.print(0, "Reboot system");
-    DEBUGMSG(ZONE_FWOTAUPD, "    %s(%d) - >> Reboot system.", FUNC_NAME, __LINE__);
+    DEBUGMSG(ZONE_FWOTAUPD, "Reboot system");
     char msg[2] = {0};
     for (int i = 0; i < 5; i++)
     {
@@ -292,6 +315,7 @@ void CheckResetFirmwareInfo()
 
     // Reboot system to apply the firmware.
     FreeFwInfo();
+    DEBUGMSG_FUNC_OUT("");
     SystemReboot();
 }
 
