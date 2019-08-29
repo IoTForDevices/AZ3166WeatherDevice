@@ -36,7 +36,8 @@ DEVICE_ENTRIES deviceTwinEntries[] = {
     { VALUE_STRING, "firmware.currentFwVersion" },
     { VALUE_STRING, "Model"                     },
     { VALUE_STRING, "Location"                  },
-    { VALUE_INT,    "actualDebugMask"           }
+    { VALUE_INT,    "actualDebugMask"           },
+    { VALUE_INT,    "displayOnTime"             }
 };
 
 DEVICE_ENTRIES telemetryEntries[] = {
@@ -390,6 +391,7 @@ void InitializeReportedTwinValues()
     reportedTwinValues[IDX_READPRESSURE].bValue = DEFAULT_READ_PRESSURE;
     reportedTwinValues[IDX_ENABLEMOTIONDETECTION].bValue = DEFAULT_DETECT_MOTION;
     reportedTwinValues[IDX_MOTIONSENSITIVITY].iValue = DEFAULT_MOTION_SENSITIVITY;
+    reportedTwinValues[IDX_DISPLAYTIME].iValue = DEFAULT_DISPLAY_TIME;
 #ifdef LOGGING    
     reportedTwinValues[IDX_DEBUGMASK].iValue = dpCurSettings.ulZoneMask;
 #else
@@ -551,17 +553,13 @@ bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message,
     return true;
 }
 
-bool CreateTelemetryMessage(char *payload, uint64_t upTime, uint64_t sensorReads, uint64_t telemetrySend, bool forceCreate)
+bool CreateTelemetryMessage(char **ppszPayLoad, uint64_t upTime, bool bSendNow, bool bShowData)
 {
 #ifdef LOGGING
     char szUp[ULONG_64_MAX_DIGITS+1];
-    char szSensorReads[ULONG_64_MAX_DIGITS+1];
-    char szTelemsSend[ULONG_64_MAX_DIGITS+1];
     Int64ToString(upTime, szUp, ULONG_64_MAX_DIGITS);
-    Int64ToString(sensorReads, szSensorReads, ULONG_64_MAX_DIGITS);
-    Int64ToString(telemetrySend, szTelemsSend, ULONG_64_MAX_DIGITS);
+    DEBUGMSG_FUNC_IN("(%p, %s, %s, %s)", *ppszPayLoad, szUp, ShowBool(bSendNow), ShowBool(bShowData));
 #endif
-    DEBUGMSG_FUNC_IN("(%p, %s, %s, %s, %s)", payload, szUp, szSensorReads, szTelemsSend, ShowBool(forceCreate));
 
     bool bReadHumidity = reportedTwinValues[IDX_READHUMIDITY].bValue;
     bool bReadPressure = reportedTwinValues[IDX_READPRESSURE].bValue;
@@ -571,7 +569,8 @@ bool CreateTelemetryMessage(char *payload, uint64_t upTime, uint64_t sensorReads
     float deltaT = abs(telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue - t);
     float deltaH = abs(telemetryValues[IDX_HUMIDITY_TELEMETRY].fValue - h);
     float deltaP = abs(telemetryValues[IDX_PRESSURE_TELEMETRY].fValue - p);
-    bool temperatureAlert = false;
+    bool bTemperatureAlert = false;
+    bool bError = false;
 
     DEBUGMSG(ZONE_SENSORDATA, "deltaT = %.2f, deltaH = %.2f, deltaP = %.2f", deltaT, deltaH, deltaP);
     DEBUGMSG(ZONE_SENSORDATA, "reportedTwinValues[IDX_TEMPERATUREACCURACY].fValue = %.1f", reportedTwinValues[IDX_TEMPERATUREACCURACY].fValue);
@@ -583,7 +582,7 @@ bool CreateTelemetryMessage(char *payload, uint64_t upTime, uint64_t sensorReads
     bool humidityChanged    = (deltaH > reportedTwinValues[IDX_HUMIDITYACCURACY].fValue);
     bool pressureChanged    = (deltaP > reportedTwinValues[IDX_PRESSUREACCURACY].fValue);
 
-    if (forceCreate) {
+    if (bSendNow) {
         temperatureChanged = humidityChanged = pressureChanged = true;
     }
 
@@ -594,74 +593,135 @@ bool CreateTelemetryMessage(char *payload, uint64_t upTime, uint64_t sensorReads
     if (temperatureChanged || humidityChanged || pressureChanged) {
         JSON_Value *root_value = json_value_init_object();
         JSON_Object *root_object = json_value_get_object(root_value);
+        bool bError = (root_value == NULL || root_object == NULL);
         char *serialized_string = NULL;
 
-        if (temperatureChanged) {
-            telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue = t;
-            json_object_set_number(root_object, telemetryEntries[IDX_TEMPERATURE_TELEMETRY].pszName, Round(telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue));
+        if (! bError && temperatureChanged) {
+            telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue = Round(t);
+            bError = (json_object_set_number(root_object, telemetryEntries[IDX_TEMPERATURE_TELEMETRY].pszName, telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue) != JSONSuccess);
         }
 
-        if(telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue > reportedTwinValues[IDX_TEMPERATUREALERT].iValue) {
-            temperatureAlert = true;
+        if (! bError && telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue > reportedTwinValues[IDX_TEMPERATUREALERT].iValue) {
+            bTemperatureAlert = true;
         }
 
-        if (humidityChanged) {
-            telemetryValues[IDX_HUMIDITY_TELEMETRY].fValue = h;
+        if (! bError && humidityChanged) {
+            telemetryValues[IDX_HUMIDITY_TELEMETRY].fValue = Round(h);
             if (bReadHumidity) {
-                json_object_set_number(root_object, telemetryEntries[IDX_HUMIDITY_TELEMETRY].pszName, Round(telemetryValues[IDX_HUMIDITY_TELEMETRY].fValue));
+                bError = (json_object_set_number(root_object, telemetryEntries[IDX_HUMIDITY_TELEMETRY].pszName, telemetryValues[IDX_HUMIDITY_TELEMETRY].fValue) != JSONSuccess);
             }
         }
 
-        if (pressureChanged) {
-            telemetryValues[IDX_PRESSURE_TELEMETRY].fValue = p;
+        if (! bError && pressureChanged) {
+            telemetryValues[IDX_PRESSURE_TELEMETRY].fValue = Round(p);
             if (bReadPressure) {
-                json_object_set_number(root_object, telemetryEntries[IDX_PRESSURE_TELEMETRY].pszName, Round(telemetryValues[IDX_PRESSURE_TELEMETRY].fValue));
+                bError = (json_object_set_number(root_object, telemetryEntries[IDX_PRESSURE_TELEMETRY].pszName, telemetryValues[IDX_PRESSURE_TELEMETRY].fValue) != JSONSuccess);
             }
         }
 
-        telemetryValues[IDX_UPTIME_TELEMETRY].ulValue = upTime;
-        json_object_set_number(root_object, telemetryEntries[IDX_UPTIME_TELEMETRY].pszName, telemetryValues[IDX_UPTIME_TELEMETRY].ulValue);
+        if (! bError) {
+            telemetryValues[IDX_UPTIME_TELEMETRY].ulValue = upTime;
+            bError = (json_object_set_number(root_object, telemetryEntries[IDX_UPTIME_TELEMETRY].pszName, telemetryValues[IDX_UPTIME_TELEMETRY].ulValue) != JSONSuccess);
+        }
 
-        ShowTelemetryData(telemetryValues[IDX_UPTIME_TELEMETRY].ulValue,
-                          sensorReads, telemetrySend,
-                          telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue,
+        ShowTelemetryData(telemetryValues[IDX_TEMPERATURE_TELEMETRY].fValue,
                           telemetryValues[IDX_HUMIDITY_TELEMETRY].fValue,
                           telemetryValues[IDX_PRESSURE_TELEMETRY].fValue,
+                          bShowData,
                           reportedTwinValues[IDX_READHUMIDITY].bValue,
                           reportedTwinValues[IDX_READPRESSURE].bValue);
 
-        serialized_string = json_serialize_to_string_pretty(root_value);
+        if (! bError) {
+            serialized_string = json_serialize_to_string_pretty(root_value);
+            bError = (serialized_string == NULL);
+        }
 
-        snprintf(payload, MESSAGE_MAX_LEN, "%s", serialized_string);
-        json_free_serialized_string(serialized_string);
-        json_value_free(root_value);
+        if (! bError) {
+            *ppszPayLoad = (char *)malloc(json_serialization_size_pretty(root_value));
+            bError = (*ppszPayLoad == NULL);
+        }
+
+        if (! bError) {
+            bError = (strcpy(*ppszPayLoad, serialized_string) == NULL);
+            if (bError && *ppszPayLoad != NULL) {
+                free(*ppszPayLoad);
+                *ppszPayLoad = NULL;
+            }
+        }
+
+        if (serialized_string != NULL) {
+            json_free_serialized_string(serialized_string);
+        }
+
+        if (root_value != NULL) {
+            json_value_free(root_value);
+        }
+
     } else {
-        *payload = '\0';
+        *ppszPayLoad = NULL;
     }
 
-    DEBUGMSG_FUNC_OUT(" = %s", ShowBool(temperatureAlert));
-    return temperatureAlert;
+    DEBUGMSG_FUNC_OUT(" = %s", ShowBool(bTemperatureAlert));
+    return bTemperatureAlert;
 }
 
-
-void CreateEventMsg(char *payload, IOTC_EVENT_TYPE eventType)
+/******************************************************************************************************************************************************
+ * Send an event message to the IoT Hub 
+ * 
+ * char *pszPayLoad = Place holder for the actual JSON message that is send to the IoT Hub
+ * IOTC_EVENT_TYPE eventType = Event that will be send to the IoT Hub
+ * 
+ * NOTE: Potential unsafe function if payload doesn't have enough memory allocated
+ *****************************************************************************************************************************************************/
+char *CreateEventMsg(IOTC_EVENT_TYPE eventType)
 {
-    DEBUGMSG_FUNC_IN("(%p, %d)", payload, (int)eventType);
+    DEBUGMSG_FUNC_IN("(%d)", (int)eventType);
     JSON_Value *root_value = json_value_init_object();
     JSON_Object *root_object = json_value_get_object(root_value);
     char *serialized_string = NULL;
+    char *pszPayLoad = NULL;
+    bool bError = (root_value == NULL || root_object == NULL);
 
-    if (eventType == MOTION_EVENT) {
-        json_object_set_string(root_object, JSON_EVENT_MOTION, "true");
+    if (! bError) {
+        bError = (eventType != MOTION_EVENT);
     }
-    serialized_string = json_serialize_to_string_pretty(root_value);
 
-    snprintf(payload, MESSAGE_MAX_LEN, "%s", serialized_string);
-    json_free_serialized_string(serialized_string);
-    json_value_free(root_value);
-    DEBUGMSG_FUNC_OUT("");
+    if (! bError) {
+        serialized_string = json_serialize_to_string_pretty(root_value);
+        bError = (serialized_string == NULL);
+    }
+
+    if (! bError) {
+        pszPayLoad = (char *)malloc(json_serialization_size_pretty(root_value));
+        bError = (pszPayLoad == NULL);
+    }
+
+    if (! bError) {
+        bError = (strcpy(pszPayLoad, serialized_string) == NULL);
+        if (bError && pszPayLoad != NULL) {
+            free(pszPayLoad);
+            pszPayLoad = NULL;
+        }
+    }
+
+    if (serialized_string != NULL) {
+        json_free_serialized_string(serialized_string);
+    }
+
+    if (root_value != NULL) {
+        json_value_free(root_value);
+    }
+
+    DEBUGMSG_FUNC_OUT(" = %p", pszPayLoad);
+
+    return pszPayLoad;
 }
 
+/******************************************************************************************************************************************************
+ * Set the reported Twin Values in IoT Hub to the latest device values 
+ * 
+ * Return value = bool - True if all reported properties have been send to the IoT Hub
+ *****************************************************************************************************************************************************/
 bool SendDeviceInfo()
 {
     DEBUGMSG_FUNC_IN("()");
@@ -765,6 +825,11 @@ int WarmingUpTime()
 int MotionSensitivity()
 {
     return isInitialized ? reportedTwinValues[IDX_MOTIONSENSITIVITY].iValue : -1;
+}
+
+int DisplayOnInterval()
+{
+    return isInitialized ? reportedTwinValues[IDX_DISPLAYTIME].iValue * 1000 : -1;
 }
 
 bool MotionDetectionEnabled()

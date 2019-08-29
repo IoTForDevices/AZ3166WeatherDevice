@@ -47,6 +47,7 @@ typedef union {
 #define IDX_DEVICEMODEL                 17
 #define IDX_DEVICELOCATION              18
 #define IDX_DEBUGMASK                   19
+#define IDX_DISPLAYTIME                 20
 
 #define IDX_TEMPERATURE_TELEMETRY       0
 #define IDX_HUMIDITY_TELEMETRY          1
@@ -54,8 +55,8 @@ typedef union {
 #define IDX_UPTIME_TELEMETRY            3
 
 //bool CreateTelemetryMessage(char *payload, bool forceCreate);
-bool CreateTelemetryMessage(char *payload, uint64_t upTime, uint64_t sensorReads, uint64_t telemetrySend, bool forceCreate);
-void CreateEventMsg(char* payLoad, IOTC_EVENT_TYPE eventType);
+bool CreateTelemetryMessage(char **ppszPayLoad, uint64_t upTime, bool forceCreate, bool bShowData);
+char *CreateEventMsg(IOTC_EVENT_TYPE eventType);
 bool SendDeviceInfo();
 bool ParseTwinMessage(DEVICE_TWIN_UPDATE_STATE updateState, const char *message, int msgLength);
 bool InitialDeviceTwinDesiredReceived();
@@ -65,6 +66,7 @@ int  SleepInterval();
 int  MotionInterval();
 int  WarmingUpTime();
 int  MotionSensitivity();
+int  DisplayOnInterval();
 bool MotionDetectionEnabled();
 bool UpdateReportedValues();
 char *CurrentFWVersion();

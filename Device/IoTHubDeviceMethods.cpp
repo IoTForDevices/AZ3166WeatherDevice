@@ -117,6 +117,15 @@ bool HandleMeasureNow(unsigned char **response, int *responseLength)
     return true;
 }
 
+bool HandleDisplayOn(unsigned char **response, int *responseLength)
+{
+    const char *ok = "{\"result\":\"OK\"}";
+    DEBUGMSG_FUNC_IN("(%p, %p)", *response, responseLength);
+    BuildResponseString(ok, response, responseLength);
+    DEBUGMSG_FUNC_OUT(" = true");
+    return true;
+}
+
 bool HandleUnknownMethod(unsigned char **response, int *responseLength)
 {
     const char *ok = "{\"result\":\"NOK\"}";

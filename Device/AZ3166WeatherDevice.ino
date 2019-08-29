@@ -39,6 +39,7 @@ static bool onReset = false;
 static bool onMeasureNow = false;
 static bool onFirmwareUpdate = false;
 static bool onResetFWVersion = false;
+static bool onDisplayOn = true;     // Initially show data on the display for 60 seconds.
 
 static bool messageSending = true;
 static uint64_t send_interval_ms;
@@ -49,12 +50,14 @@ static uint64_t deviceStartTime = 0;
 static uint64_t upTime = 0;
 static uint64_t telemetryMsgs = 0;
 static uint64_t sReads = 0;
+static uint64_t display_on_interval_ms;
 
 static bool nextMeasurementDue;
 static bool firstMessageSend = false;
 static bool nextMessageDue;
 static bool nextMotionEventDue;
 static bool suppressMessages;
+static bool bShowDisplay = true;
 
 /**********************************************************************************************************
  * InitWifi
@@ -128,6 +131,10 @@ int DeviceMethodCallback(const char *methodName, const unsigned char *payload, i
         onReset = HandleReset(response, responseLength);
     } else if (strcmp(methodName, "MeasureNow") == 0) {
         onMeasureNow = HandleMeasureNow(response, responseLength);
+    } else if (strcmp(methodName, "DisplayOn") == 0) {
+        onDisplayOn = HandleDisplayOn(response, responseLength);
+        onMeasureNow = true;    // Force the display to be updated immediately.
+        display_on_interval_ms = SystemTickCounterRead();
     } else if (strcmp(methodName, "FirmwareUpdate") == 0) {
         onFirmwareUpdate = HandleFirmwareUpdate((const char*)payload, length, response, responseLength);
     } else if (strcmp(methodName, "ResetFWVersion") == 0) {
@@ -161,6 +168,7 @@ void TwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char *pay
 void setup()
 {
     DEBUGMSG_FUNC_IN("()"); 
+
     if (!InitWifi()) {
         exit(1);
     }
@@ -172,7 +180,7 @@ void setup()
     DevKitMQTTClient_SetDeviceTwinCallback(&TwinCallback);
 
     SetupSensors();
-    send_interval_ms = measure_interval_ms = warming_up_interval_ms = deviceStartTime = motion_interval_ms = SystemTickCounterRead();
+    send_interval_ms = measure_interval_ms = warming_up_interval_ms = deviceStartTime = motion_interval_ms = display_on_interval_ms = SystemTickCounterRead();
 
 #ifdef LOGGING
     char szTC[ULONG_64_MAX_DIGITS+1];
@@ -198,17 +206,20 @@ void loop()
         char szSI[ULONG_64_MAX_DIGITS+1];
         char szMM[ULONG_64_MAX_DIGITS+1];
         char szWU[ULONG_64_MAX_DIGITS+1];
+        char szDO[ULONG_64_MAX_DIGITS+1];
 
         Int64ToString(tickCount, szTC, ULONG_64_MAX_DIGITS);
         Int64ToString(measure_interval_ms, szMI, ULONG_64_MAX_DIGITS);
         Int64ToString(send_interval_ms, szSI, ULONG_64_MAX_DIGITS);
         Int64ToString(motion_interval_ms, szMM, ULONG_64_MAX_DIGITS);
         Int64ToString(warming_up_interval_ms, szWU, ULONG_64_MAX_DIGITS);
+        Int64ToString(display_on_interval_ms, szDO, ULONG_64_MAX_DIGITS);
 #endif
         int measurementInterval = MeasurementInterval();
         int sendInterval = SendInterval();
         int motionInterval = MotionInterval();
         int sleepInterval = SleepInterval();
+        int displayOnInterval = DisplayOnInterval();
 
         nextMeasurementDue = (tickCount - measure_interval_ms) >= measurementInterval;
         DEBUGMSG(ZONE_MAINLOOP, "nextMeasurementDue = %d, tickCount = %s, measure_interval_ms = %s, measurementInterval = %d", nextMeasurementDue, szTC, szMI, measurementInterval);
@@ -216,6 +227,11 @@ void loop()
         DEBUGMSG(ZONE_MAINLOOP, "nextMessageDue = %d, tickCount = %s, send_interval_ms = %s, sendInterval = %d", nextMessageDue, szTC, szSI, sendInterval);
         nextMotionEventDue = (tickCount - motion_interval_ms) >= motionInterval;
         DEBUGMSG(ZONE_MAINLOOP, "nextMotionEventDue = %d, tickCount = %s, motion_interval_ms = %s, motionInterval = %d", nextMotionEventDue, szTC, szMM, motionInterval);
+
+        if (onDisplayOn) {
+            bShowDisplay = onDisplayOn = (tickCount - display_on_interval_ms) < displayOnInterval;
+            DEBUGMSG(ZONE_MAINLOOP, "bShowDisplay = %s, tickCount = %s, display_on_interval_ms = %s, displayOnInterval = %d", ShowBool(bShowDisplay), szTC, szDO, displayOnInterval);
+        }
 
         if (! firstMessageSend) {
             int warmingUpTime = WarmingUpTime();
@@ -234,13 +250,14 @@ void loop()
             bool motionDetected = MotionDetected(MotionSensitivity());
 
             if (motionDetected && nextMotionEventDue) {
-                char messageEvt[MESSAGE_MAX_LEN];
-                CreateEventMsg(messageEvt, MOTION_EVENT);
-                EVENT_INSTANCE* message = DevKitMQTTClient_Event_Generate(messageEvt, MESSAGE);
-                DevKitMQTTClient_SendEventInstance(message);
-
-                motion_interval_ms = SystemTickCounterRead();
-                DEBUGMSG(ZONE_MOTIONDETECT, "Sending Motion Detected Event - motion_inteval_ms = %d", motion_interval_ms);
+                char *pszEventMsg = CreateEventMsg(MOTION_EVENT);
+                if (pszEventMsg != NULL) {
+                    EVENT_INSTANCE* message = DevKitMQTTClient_Event_Generate(pszEventMsg, MESSAGE);
+                    DevKitMQTTClient_SendEventInstance(message);
+                    free(pszEventMsg);
+                    motion_interval_ms = SystemTickCounterRead();
+                    DEBUGMSG(ZONE_MOTIONDETECT, "Sending Motion Detected Event - motion_inteval_ms = %d", motion_interval_ms);
+                }
             }
 
             DEBUGMSG(ZONE_MOTIONDETECT, "Motion Detected = %d, nextMotionEventDue = %d", motionDetected, nextMotionEventDue);
@@ -251,27 +268,26 @@ void loop()
             SendDeviceInfo();
         } else if (nextMeasurementDue || nextMessageDue || onMeasureNow) {
             // Read Sensors ...
-            char messagePayload[MESSAGE_MAX_LEN];
+            char *pszMsgPayLoad = NULL;
             char szUp[ULONG_64_MAX_DIGITS+1];
 
             upTime = (uint64_t)((SystemTickCounterRead() - deviceStartTime) / 1000);
 
-            bool temperatureAlert = CreateTelemetryMessage(messagePayload, upTime, sReads, telemetryMsgs, nextMessageDue || onMeasureNow);
+            bool temperatureAlert = CreateTelemetryMessage(&pszMsgPayLoad, upTime, nextMessageDue || onMeasureNow, bShowDisplay);
    
             sReads = sReads + 1;
 
             if (! suppressMessages) {
 
                 // ... and send data if the sensor value(s) differ from the previous reading or when the device needs to give a sign of life.
-                if (strlen(messagePayload) != 0) {
+                if (pszMsgPayLoad != NULL) {
                     char szDeviceName[21];
         
                     snprintf(szDeviceName, sizeof(szDeviceName) - 1, "%s", CurrentDevice());
-                    EVENT_INSTANCE* message = DevKitMQTTClient_Event_Generate(messagePayload, MESSAGE);
+                    EVENT_INSTANCE* message = DevKitMQTTClient_Event_Generate(pszMsgPayLoad, MESSAGE);
                     DevKitMQTTClient_Event_AddProp(message, JSON_TEMPERATURE_ALERT, temperatureAlert ? "true" : "false");
                     DevKitMQTTClient_Event_AddProp(message, JSON_DEVICEID, szDeviceName);
-//                  DevKitMQTTClient_Event_AddProp(message, JSON_UPTIME, szUpTime);
-
+                    free(pszMsgPayLoad);
                     DEBUGMSG(ZONE_HUBMSG, "Sending telemetry values to IoT Hub for %s", szDeviceName);
 
                     DevKitMQTTClient_SendEventInstance(message);
