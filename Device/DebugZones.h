@@ -88,8 +88,8 @@ extern DBGPARAM dpCurSettings;
 #define ZONEMASK_WARNING      ZONEMASK(14)
 #define ZONEMASK_ERROR        ZONEMASK(15)
 
-//#define DEBUGZONES      ZONEMASK_INIT | ZONEMASK_MAINLOOP | ZONEMASK_ERROR | ZONEMASK_WARNING
-#define DEBUGZONES      0xFFFF
+#define DEBUGZONES      ZONEMASK_FUNCTION | ZONEMASK_MAINLOOP | ZONEMASK_ERROR | ZONEMASK_WARNING
+//#define DEBUGZONES      0xFFFF
 
 #define DEBUGMSG(cond, ...) do { if (cond) { if (Serial.availableForWrite() < 150) { delay (300); } Serial.printf(" [%-25s] %04d - %s: ", __FILE__, __LINE__, FUNC_NAME); Serial.printf(__VA_ARGS__); Serial.printf("\r\n"); } } while ((void)0, 0)
 #define DEBUGMSG_RAW(cond, ...) do { if (cond) { if (Serial.availableForWrite() < MAX_RAW_MSG_BUFFER_SIZE) { delay (300); } Serial.printf(__VA_ARGS__); } } while ((void)0, 0)
